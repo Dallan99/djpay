@@ -101,7 +101,7 @@ function LegacyPjPanel() {
       <header className="border-b bg-card">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-5 py-8">
           <Badge variant="outline" className="w-fit border-primary/30 text-primary">
-            Contrato PJ · {config.ano}
+            Contrato PJ{hydrated ? ` · ${config.ano}` : ""}
           </Badge>
           <h1
             className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl"

@@ -1,28 +1,167 @@
-# PJ Pay Perks
+# Painel PJ
 
-Me deram uma ideia de montar um sistema de pagamentos para pessoas que trabalham em empresas no modelo PJ - muitos deles, além do salario, tem alguns benefícios por fora, como ao invés do 13 salarioa, tem a 13 nota emitida no mes de dezembro ou diluida em 4 notas no ano a cada 3 meses.
-Férias, é a mesma coisa, fica de 10,20 ou 30 dias de férias, mas para ele receber, ele também tem que emitir nota_
-Falo por mim mesmo, eu sou pj, recebo ainda ajuda de custo, (emito nota) 13 a cada 3 meses (emito nota) férias 10 dias por ano remunerada.
+Aplicação para organizar pagamentos de contratos PJ, incluindo salário mensal, ajuda de custo, 13ª nota e férias remuneradas.
 
-This project was built with [Lovable](https://lovable.dev).
+## Fluxo de contribuição com GitHub CLI
 
-**Live app**: https://djpay.lovable.app
+Este guia mostra como clonar o repositório, criar uma branch, enviar alterações e abrir um Pull Request usando o [GitHub CLI](https://cli.github.com/).
 
-## Build with Lovable
+### 1. Instale e autentique o GitHub CLI
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/50c5fe12-7932-4142-8b28-b47345d12430).
+Instale o GitHub CLI conforme o seu sistema operacional e autentique sua conta:
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+```bash
+gh auth login
+```
 
-## Development
+Siga as instruções do terminal para entrar na sua conta do GitHub e autorizar o acesso.
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+### 2. Clone o repositório
 
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+Substitua `ORGANIZACAO/REPOSITORIO` pelo caminho deste projeto no GitHub:
+
+```bash
+gh repo clone ORGANIZACAO/REPOSITORIO
+cd REPOSITORIO
+```
+
+Confira se o repositório remoto foi configurado corretamente:
+
+```bash
+git remote -v
+```
+
+### 3. Crie uma branch para sua alteração
+
+Antes de editar o código, atualize a branch principal e crie uma branch descritiva:
+
+```bash
+git switch main
+git pull origin main
+git switch -c feat/minha-alteracao
+```
+
+Use prefixos consistentes para facilitar a organização:
+
+- `feat/` para funcionalidades novas;
+- `fix/` para correções;
+- `docs/` para documentação;
+- `refactor/` para melhorias internas no código.
+
+Exemplo para atualizar a documentação:
+
+```bash
+git switch -c docs/atualizar-readme
+```
+
+### 4. Faça e revise suas alterações
+
+Após editar os arquivos, veja o que foi modificado:
+
+```bash
+git status
+git diff
+```
+
+Adicione os arquivos desejados à área de stage:
+
+```bash
+git add .
+```
+
+Ou adicione arquivos específicos:
+
+```bash
+git add README.md src/routes/index.tsx
+```
+
+### 5. Crie um commit
+
+Crie um commit com uma mensagem curta e objetiva:
+
+```bash
+git commit -m "feat: adiciona resumo de pagamentos"
+```
+
+Exemplos de mensagens:
+
+```bash
+git commit -m "fix: corrige cálculo das férias"
+git commit -m "docs: documenta fluxo de contribuição"
+git commit -m "refactor: simplifica calendário anual"
+```
+
+### 6. Envie a branch para o GitHub
+
+Publique a branch criada no repositório remoto:
+
+```bash
+git push -u origin feat/minha-alteracao
+```
+
+Depois do primeiro envio, os próximos podem ser feitos apenas com:
+
+```bash
+git push
+```
+
+### 7. Abra um Pull Request
+
+Crie o Pull Request pelo terminal:
+
+```bash
+gh pr create --base main --head feat/minha-alteracao --fill
+```
+
+A opção `--fill` usa o título e a descrição com base nos commits da branch. Para informar os textos manualmente:
+
+```bash
+gh pr create \
+  --base main \
+  --head feat/minha-alteracao \
+  --title "feat: adiciona resumo de pagamentos" \
+  --body "## O que foi alterado\n- Adiciona o resumo anual de pagamentos.\n\n## Como validar\n- Confira os valores exibidos no painel."
+```
+
+Ao finalizar, o terminal exibirá o link do Pull Request criado.
+
+### 8. Acompanhe o Pull Request
+
+Liste os Pull Requests abertos:
+
+```bash
+gh pr list
+```
+
+Visualize o Pull Request atual no navegador:
+
+```bash
+gh pr view --web
+```
+
+Verifique os checks e o status das validações:
+
+```bash
+gh pr checks
+```
+
+## Resumo rápido
+
+```bash
+# Clonar
+gh repo clone ORGANIZACAO/REPOSITORIO
+cd REPOSITORIO
+
+# Criar branch
+git switch main
+git pull origin main
+git switch -c feat/minha-alteracao
+
+# Salvar e enviar alterações
+git add .
+git commit -m "feat: descreve a alteração"
+git push -u origin feat/minha-alteracao
+
+# Abrir Pull Request
+gh pr create --base main --head feat/minha-alteracao --fill
 ```

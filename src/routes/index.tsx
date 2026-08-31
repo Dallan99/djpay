@@ -358,11 +358,26 @@ function LegacyPjPanel() {
   );
 }
 
+const DOCUMENT_CATEGORIES = [
+  "CNH",
+  "Comprovante de residência",
+  "CPF",
+  "CNPJ",
+  "Dados bancários",
+  "Chave Pix",
+  "Dados da empresa",
+  "Endereço da empresa",
+  "Endereço do sócio",
+] as const;
+
+type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number];
+
 type EmployeeDocument = {
   id: string;
   name: string;
   size: number;
   type: string;
+  category: DocumentCategory;
 };
 
 type Employee = {
@@ -379,6 +394,7 @@ type Employee = {
 function EmployeeDashboard() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [employeePhoto, setEmployeePhoto] = useState<File | null>(null);
+  const [selectedDocumentCategory, setSelectedDocumentCategory] = useState<DocumentCategory>("CNH");
   const [photoPreview, setPhotoPreview] = useState("");
   const [saved, setSaved] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -423,10 +439,11 @@ function EmployeeDashboard() {
     if (!file || !selectedEmployee) return;
 
     const document: EmployeeDocument = {
-      id: `${file.name}-${file.lastModified}`,
+      id: `${selectedDocumentCategory}-${file.name}-${file.lastModified}`,
       name: file.name,
       size: file.size,
       type: file.type,
+      category: selectedDocumentCategory,
     };
     const updatedEmployee = {
       ...selectedEmployee,
@@ -730,12 +747,13 @@ function EmployeeDashboard() {
                 <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Admissão</p><p className="mt-1 font-medium">{selectedEmployee.admissionDate ? new Date(`${selectedEmployee.admissionDate}T00:00:00`).toLocaleDateString("pt-BR") : "Não informada"}</p></div>
               </div>
 
-              <div className="mt-6 space-y-4">
-                <div className="flex items-end justify-between gap-4"><div><h3 className="font-semibold">Documentos</h3><p className="mt-1 text-sm text-muted-foreground">Envie arquivos em PDF ou imagens.</p></div><label htmlFor="employee-document" className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-md shadow-primary/20 transition-all duration-200 hover:scale-[1.02] hover:shadow-primary/25 active:scale-[0.98]"><Upload className="size-4" />Anexar<input id="employee-document" type="file" accept="application/pdf,image/*" className="sr-only" onChange={handleDocumentUpload} /></label></div>
+                              <div className="mt-6 space-y-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h3 className="font-semibold">Documentos e dados cadastrais</h3><p className="mt-1 text-sm text-muted-foreground">Organize os comprovantes e informações necessárias para este PJ.</p></div><div className="flex gap-2"><Select value={selectedDocumentCategory} onValueChange={(value) => setSelectedDocumentCategory(value as DocumentCategory)}><SelectTrigger className="w-[190px]"><SelectValue /></SelectTrigger><SelectContent>{DOCUMENT_CATEGORIES.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent></Select><label htmlFor="employee-document" className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-md shadow-primary/20 transition-all duration-200 hover:scale-[1.02] hover:shadow-primary/25 active:scale-[0.98]"><Upload className="size-4" />Anexar<input id="employee-document" type="file" accept="application/pdf,image/*" className="sr-only" onChange={handleDocumentUpload} /></label></div></div>
+                <div className="grid gap-2 rounded-2xl border border-border/60 bg-muted/20 p-4 sm:grid-cols-2"><p className="sm:col-span-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Itens esperados</p>{DOCUMENT_CATEGORIES.map((category) => { const attached = selectedEmployee.documents.some((document) => document.category === category); return <div key={category} className="flex items-center gap-2 text-sm"><Check className={`size-4 ${attached ? "text-success" : "text-muted-foreground/40"}`} /><span className={attached ? "font-medium text-foreground" : "text-muted-foreground"}>{category}</span></div>; })}</div>
                 {selectedEmployee.documents.length > 0 ? (
                   <div className="space-y-2">
                     {selectedEmployee.documents.map((document) => (
-                      <div key={document.id} className="flex items-center gap-3 rounded-xl border border-border/60 bg-card p-3"><div className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary"><FileText className="size-4" /></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{document.name}</p><p className="text-xs text-muted-foreground">{document.type === "application/pdf" ? "PDF" : "Imagem"} · {(document.size / 1024).toFixed(1)} KB</p></div><Check className="size-4 text-success" /></div>
+                      <div key={document.id} className="flex items-center gap-3 rounded-xl border border-border/60 bg-card p-3"><div className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary"><FileText className="size-4" /></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{document.name}</p><p className="text-xs text-muted-foreground">{document.category} · {document.type === "application/pdf" ? "PDF" : "Imagem"} · {(document.size / 1024).toFixed(1)} KB</p></div><Check className="size-4 text-success" /></div>
                     ))}
                   </div>
                 ) : (

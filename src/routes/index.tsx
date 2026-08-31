@@ -388,6 +388,21 @@ function EmployeeDashboard() {
     role: "",
     admissionDate: "",
   });
+  const { hydrated, config, done } = usePjStore();
+  const invoiceSummary = useMemo(() => {
+    const schedule = buildSchedule(config);
+    const emitted = schedule.filter((invoice) => done[invoice.id]);
+    const pending = schedule.filter((invoice) => !done[invoice.id]);
+
+    return {
+      total: schedule.length,
+      totalValue: schedule.reduce((sum, invoice) => sum + invoice.valor, 0),
+      emittedCount: emitted.length,
+      emittedValue: emitted.reduce((sum, invoice) => sum + invoice.valor, 0),
+      pendingCount: pending.length,
+      pendingValue: pending.reduce((sum, invoice) => sum + invoice.valor, 0),
+    };
+  }, [config, done]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -453,6 +468,59 @@ function EmployeeDashboard() {
             Cadastre colaboradores individualmente ou prepare uma planilha para importação. Nesta etapa, os dados ficam somente nesta tela.
           </p>
         </div>
+
+        <section className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Card className="border-success/20 bg-card/80 shadow-md shadow-black/5 transition-all duration-300 hover:-translate-y-1 hover:border-success/40 hover:shadow-xl">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Notas emitidas</p>
+                  <p className="mt-2 text-3xl font-semibold tracking-tight tabular-nums" style={{ fontFamily: "var(--font-display)" }}>
+                    {hydrated ? invoiceSummary.emittedCount : "—"}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{hydrated ? brl(invoiceSummary.emittedValue) : "Carregando resumo"}</p>
+                </div>
+                <div className="grid size-11 place-items-center rounded-2xl bg-success/15 text-success">
+                  <Check className="size-5" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-warning/30 bg-card/80 shadow-md shadow-black/5 transition-all duration-300 hover:-translate-y-1 hover:border-warning/60 hover:shadow-xl">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Notas pendentes</p>
+                  <p className="mt-2 text-3xl font-semibold tracking-tight tabular-nums" style={{ fontFamily: "var(--font-display)" }}>
+                    {hydrated ? invoiceSummary.pendingCount : "—"}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{hydrated ? brl(invoiceSummary.pendingValue) : "Carregando resumo"}</p>
+                </div>
+                <div className="grid size-11 place-items-center rounded-2xl bg-warning/25 text-warning-foreground">
+                  <AlertCircle className="size-5" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/20 bg-primary/5 shadow-md shadow-black/5 transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl sm:col-span-2 lg:col-span-1">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Previsão anual</p>
+                  <p className="mt-2 text-3xl font-semibold tracking-tight tabular-nums" style={{ fontFamily: "var(--font-display)" }}>
+                    {hydrated ? invoiceSummary.total : "—"}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{hydrated ? brl(invoiceSummary.totalValue) : "Carregando resumo"}</p>
+                </div>
+                <div className="grid size-11 place-items-center rounded-2xl bg-primary/10 text-primary">
+                  <FileText className="size-5" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
           <Card className="overflow-hidden border-border/60 bg-card/80 shadow-lg shadow-black/5">

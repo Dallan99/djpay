@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { AlertCircle, Check, Search, User } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -59,6 +60,10 @@ const KIND_STYLE: Record<InvoiceKind, string> = {
 };
 
 function Index() {
+  return <EmployeeDashboard />;
+}
+
+function LegacyPjPanel() {
   const { hydrated, config, update, done, toggle } = usePjStore();
   const schedule = useMemo(() => buildSchedule(config), [config]);
   const t = useMemo(() => totals(schedule), [schedule]);
@@ -332,6 +337,154 @@ function Index() {
               </CardContent>
             </Card>
           </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function EmployeeDashboard() {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setSelectedFile(file);
+  };
+
+  return (
+    <main className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 font-sans">
+      <header className="border-b border-border/60 bg-background/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl flex-col gap-5 px-5 py-7 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="grid size-11 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-md shadow-primary/20">
+              <User className="size-5" />
+            </div>
+            <div>
+              <p className="text-lg font-semibold tracking-tight">Equipe</p>
+              <p className="text-sm text-muted-foreground">Cadastro e importação de colaboradores</p>
+            </div>
+          </div>
+          <Badge variant="outline" className="w-fit rounded-full border-primary/20 bg-primary/5 px-3 py-1 text-primary">
+            Configuração inicial
+          </Badge>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-6xl px-5 py-10 sm:py-14">
+        <div className="mb-10 max-w-2xl space-y-3">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Gestão de pessoas</p>
+          <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl" style={{ fontFamily: "var(--font-display)" }}>
+            Organize sua equipe em um só lugar.
+          </h1>
+          <p className="text-base leading-7 text-muted-foreground">
+            Cadastre colaboradores individualmente ou prepare uma planilha para importação. Nesta etapa, os dados ficam somente nesta tela.
+          </p>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+          <Card className="overflow-hidden border-border/60 bg-card/80 shadow-lg shadow-black/5">
+            <CardHeader className="border-b border-border/60 bg-muted/20">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <User className="size-5" />
+              </div>
+              <CardTitle className="pt-3 text-xl" style={{ fontFamily: "var(--font-display)" }}>
+                Cadastrar funcionário
+              </CardTitle>
+              <CardDescription>Preencha os dados básicos para incluir um novo colaborador.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              <form
+                className="space-y-5"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  setSaved(true);
+                }}
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="nome">Nome completo</Label>
+                  <Input id="nome" placeholder="Ex.: Marina Oliveira" className="focus-visible:ring-2 focus-visible:ring-primary/25" required />
+                </div>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">E-mail corporativo</Label>
+                    <Input id="email" type="email" placeholder="nome@empresa.com" className="focus-visible:ring-2 focus-visible:ring-primary/25" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="telefone">Telefone</Label>
+                    <Input id="telefone" type="tel" placeholder="(00) 00000-0000" className="focus-visible:ring-2 focus-visible:ring-primary/25" />
+                  </div>
+                </div>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="cargo">Cargo</Label>
+                    <Input id="cargo" placeholder="Ex.: Analista financeiro" className="focus-visible:ring-2 focus-visible:ring-primary/25" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="admissao">Data de admissão</Label>
+                    <Input id="admissao" type="date" className="focus-visible:ring-2 focus-visible:ring-primary/25" />
+                  </div>
+                </div>
+                {saved && (
+                  <div className="flex items-center gap-2 rounded-xl border border-success/30 bg-success/10 px-3 py-2.5 text-sm text-success">
+                    <Check className="size-4" />
+                    Cadastro validado localmente. A conexão com o banco será adicionada depois.
+                  </div>
+                )}
+                <Button type="submit" className="w-full rounded-xl shadow-md shadow-primary/20 transition-all duration-200 hover:scale-[1.02] hover:shadow-primary/25 active:scale-[0.98] sm:w-auto">
+                  Salvar funcionário
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden border-border/60 bg-card/80 shadow-lg shadow-black/5">
+            <CardHeader className="border-b border-border/60 bg-muted/20">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Search className="size-5" />
+              </div>
+              <CardTitle className="pt-3 text-xl" style={{ fontFamily: "var(--font-display)" }}>
+                Importar planilha
+              </CardTitle>
+              <CardDescription>Selecione um arquivo Excel para conferir sua estrutura antes da importação.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5 p-6">
+              <label htmlFor="excel-file" className="group flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-6 text-center transition-all duration-300 hover:border-primary/60 hover:bg-primary/10">
+                <div className="mb-3 grid size-12 place-items-center rounded-2xl bg-background text-primary shadow-sm transition-transform duration-300 group-hover:scale-105">
+                  <Search className="size-5" />
+                </div>
+                <span className="font-semibold text-foreground">Selecionar arquivo Excel</span>
+                <span className="mt-1 text-sm text-muted-foreground">Formatos aceitos: .xlsx e .xls</span>
+                <input id="excel-file" type="file" accept=".xlsx,.xls" className="sr-only" onChange={handleFileChange} />
+              </label>
+
+              {selectedFile ? (
+                <div className="space-y-4 rounded-2xl border border-border/60 bg-muted/30 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 grid size-8 place-items-center rounded-lg bg-success/15 text-success"><Check className="size-4" /></div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{selectedFile.name}</p>
+                      <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024).toFixed(1)} KB · arquivo selecionado</p>
+                    </div>
+                  </div>
+                  <div className="overflow-hidden rounded-xl border border-border/60 bg-background">
+                    <div className="grid grid-cols-3 border-b border-border/60 bg-muted/50 px-3 py-2 text-xs font-semibold text-muted-foreground">
+                      <span>Nome</span><span>Cargo</span><span>E-mail</span>
+                    </div>
+                    <div className="grid grid-cols-3 px-3 py-2.5 text-xs text-muted-foreground">
+                      <span className="truncate">Aguardando leitura</span><span>—</span><span>—</span>
+                    </div>
+                  </div>
+                  <p className="text-xs leading-5 text-muted-foreground">A leitura dos dados da planilha será habilitada junto com a integração ao banco.</p>
+                </div>
+              ) : (
+                <div className="flex gap-3 rounded-xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+                  <AlertCircle className="mt-0.5 size-4 shrink-0 text-primary" />
+                  <p>Use colunas como <strong className="font-medium text-foreground">Nome</strong>, <strong className="font-medium text-foreground">Cargo</strong>, <strong className="font-medium text-foreground">E-mail</strong> e <strong className="font-medium text-foreground">Telefone</strong> para facilitar a futura importação.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </main>

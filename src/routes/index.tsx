@@ -372,11 +372,14 @@ type Employee = {
   phone: string;
   role: string;
   admissionDate: string;
+  photoUrl: string;
   documents: EmployeeDocument[];
 };
 
 function EmployeeDashboard() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [employeePhoto, setEmployeePhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState("");
   const [saved, setSaved] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -407,6 +410,12 @@ function EmployeeDashboard() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     setSelectedFile(file);
+  };
+
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setEmployeePhoto(file);
+    setPhotoPreview(file ? URL.createObjectURL(file) : "");
   };
 
   const handleDocumentUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -541,13 +550,30 @@ function EmployeeDashboard() {
                   const employee: Employee = {
                     id: crypto.randomUUID(),
                     ...formData,
+                    photoUrl: photoPreview,
                     documents: [],
                   };
                   setEmployees((current) => [employee, ...current]);
                   setFormData({ name: "", email: "", phone: "", role: "", admissionDate: "" });
+                  setEmployeePhoto(null);
+                  setPhotoPreview("");
                   setSaved(true);
                 }}
               >
+                <div className="flex items-center gap-4 rounded-2xl border border-border/60 bg-muted/20 p-4">
+                  <label htmlFor="foto-funcionario" className="group relative grid size-16 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full border-2 border-dashed border-primary/30 bg-primary/10 text-primary transition-all duration-200 hover:border-primary hover:scale-105">
+                    {photoPreview ? (
+                      <img src={photoPreview} alt="Prévia da foto" className="size-full object-cover" />
+                    ) : (
+                      <User className="size-6" />
+                    )}
+                    <input id="foto-funcionario" type="file" accept="image/*" className="sr-only" onChange={handlePhotoChange} />
+                  </label>
+                  <div className="min-w-0">
+                    <Label htmlFor="foto-funcionario" className="cursor-pointer">Foto do funcionário</Label>
+                    <p className="mt-1 text-sm text-muted-foreground">Clique no avatar para selecionar uma imagem.</p>
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="nome">Nome completo</Label>
                   <Input id="nome" value={formData.name} onChange={(event) => setFormData((current) => ({ ...current, name: event.target.value }))} placeholder="Ex.: Marina Oliveira" className="focus-visible:ring-2 focus-visible:ring-primary/25" required />
@@ -657,8 +683,12 @@ function EmployeeDashboard() {
             {filteredEmployees.length > 0 ? (
               filteredEmployees.map((employee) => (
                 <button key={employee.id} type="button" onClick={() => setSelectedEmployee(employee)} className="group flex w-full items-center gap-4 p-5 text-left transition-all duration-300 hover:bg-muted/40">
-                  <div className="grid size-11 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                    {employee.name.split(" ").slice(0, 2).map((part) => part[0]).join("")}
+                  <div className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                    {employee.photoUrl ? (
+                      <img src={employee.photoUrl} alt={`Foto de ${employee.name}`} className="size-full object-cover" />
+                    ) : (
+                      employee.name.split(" ").slice(0, 2).map((part) => part[0]).join("")
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-foreground">{employee.name}</p>
@@ -684,7 +714,13 @@ function EmployeeDashboard() {
           {selectedEmployee && (
             <>
               <DialogHeader>
-                <div className="mb-2 flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><User className="size-6" /></div>
+                <div className="mb-2 grid size-14 place-items-center overflow-hidden rounded-2xl bg-primary/10 text-primary">
+                  {selectedEmployee.photoUrl ? (
+                    <img src={selectedEmployee.photoUrl} alt={`Foto de ${selectedEmployee.name}`} className="size-full object-cover" />
+                  ) : (
+                    <User className="size-6" />
+                  )}
+                </div>
                 <DialogTitle className="text-2xl" style={{ fontFamily: "var(--font-display)" }}>{selectedEmployee.name}</DialogTitle>
                 <DialogDescription>{selectedEmployee.role} · {selectedEmployee.email}</DialogDescription>
               </DialogHeader>

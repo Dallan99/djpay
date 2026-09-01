@@ -75,6 +75,7 @@ type ContractBenefit = {
   mes_pagamento: number | null;
   data_pagamento: string | null;
   observacoes: string | null;
+  status: string | null;
 };
 
 type BenefitForm = {
@@ -175,6 +176,7 @@ function ProfessionalDetailPage() {
   const [isSavingBenefit, setIsSavingBenefit] = useState(false);
   const [benefitError, setBenefitError] = useState("");
   const [benefitForm, setBenefitForm] = useState<BenefitForm>(initialBenefitForm);
+  const [editingBenefitId, setEditingBenefitId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -219,8 +221,8 @@ function ProfessionalDetailPage() {
         setProfessional(data);
 
         const { data: benefitsData, error: benefitsError } = await (supabase as any)
-          .from("contract_benefits")
-          .select("id, tipo, valor, periodicidade, requer_nota_fiscal, mes_pagamento, data_pagamento, observacoes")
+          .from("contractor_financial_benefits")
+          .select("id, tipo, valor, periodicidade, requer_nota_fiscal, mes_pagamento, data_pagamento, observacoes, status")
           .eq("contractor_id", id)
           .eq("company_id", companyId)
           .order("created_at", { ascending: true });
@@ -244,7 +246,42 @@ function ProfessionalDetailPage() {
     setBenefitForm((current) => ({ ...current, [key]: value }));
   };
 
-  const handleCreateBenefit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const loadBenefits = async () => {
+    if (!professional) return;
+
+    const { data } = await (supabase as any)
+      .from("contractor_financial_benefits")
+      .select("id, tipo, valor, periodicidade, requer_nota_fiscal, mes_pagamento, data_pagamento, observacoes, status")
+      .eq("contractor_id", professional.id)
+      .eq("company_id", professional.company_id)
+      .order("created_at", { ascending: true });
+
+    setBenefits(data ?? []);
+  };
+
+  const openCreateBenefitDialog = () => {
+    setBenefitError("");
+    setEditingBenefitId(null);
+    setBenefitForm(initialBenefitForm);
+    setIsBenefitDialogOpen(true);
+  };
+
+  const openEditBenefitDialog = (benefit: ContractBenefit) => {
+    setBenefitError("");
+    setEditingBenefitId(benefit.id);
+    setBenefitForm({
+      tipo: benefit.tipo,
+      valor: String(benefit.valor),
+      periodicidade: benefit.periodicidade,
+      requer_nota_fiscal: benefit.requer_nota_fiscal ? "sim" : "nao",
+      mes_pagamento: benefit.mes_pagamento ? String(benefit.mes_pagamento) : "",
+      data_pagamento: benefit.data_pagamento ?? "",
+      observacoes: benefit.observacoes ?? "",
+    });
+    setIsBenefitDialogOpen(true);
+  };
+
+  const handleSaveBenefit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setBenefitError("");
 
@@ -255,22 +292,30 @@ function ProfessionalDetailPage() {
       return;
     }
 
+    const benefitData = {
+      tipo: benefitForm.tipo,
+      valor: value,
+      periodicidade: benefitForm.periodicidade,
+      requer_nota_fiscal: benefitForm.requer_nota_fiscal === "sim",
+      mes_pagamento: benefitForm.mes_pagamento ? Number(benefitForm.mes_pagamento) : null,
+      data_pagamento: benefitForm.data_pagamento || null,
+      observacoes: benefitForm.observacoes.trim() || null,
+    };
+
     setIsSavingBenefit(true);
-    const { error } = await (supabase as any)
-      .from("contract_benefits")
-      .insert({
-        company_id: professional.company_id,
-        contractor_id: professional.id,
-        tipo: benefitForm.tipo,
-        valor: value,
-        periodicidade: benefitForm.periodicidade,
-        requer_nota_fiscal: benefitForm.requer_nota_fiscal === "sim",
-        mes_pagamento: benefitForm.mes_pagamento ? Number(benefitForm.mes_pagamento) : null,
-        data_pagamento: benefitForm.data_pagamento || null,
-        observacoes: benefitForm.observacoes.trim() || null,
-      })
-      .select("id, tipo, valor, periodicidade, requer_nota_fiscal, mes_pagamento, data_pagamento, observacoes")
-      .single();
+    const query = (supabase as any).from("contractor_financial_benefits");
+    const { error } = editingBenefitId
+      ? await query
+          .update(benefitData)
+          .eq("id", editingBenefitId)
+          .eq("company_id", professional.company_id)
+          .eq("contractor_id", professional.id)
+      : await query.insert({
+          ...benefitData,
+          company_id: professional.company_id,
+          contractor_id: professional.id,
+          status: "active",
+        });
 
     setIsSavingBenefit(false);
     if (error) {
@@ -278,16 +323,29 @@ function ProfessionalDetailPage() {
       return;
     }
 
-    const { data } = await (supabase as any)
-      .from("contract_benefits")
-      .select("id, tipo, valor, periodicidade, requer_nota_fiscal, mes_pagamento, data_pagamento, observacoes")
-      .eq("contractor_id", professional.id)
-      .eq("company_id", professional.company_id)
-      .order("created_at", { ascending: true });
-
-    setBenefits(data ?? []);
+    await loadBenefits();
     setBenefitForm(initialBenefitForm);
+    setEditingBenefitId(null);
     setIsBenefitDialogOpen(false);
+  };
+
+  const handleBenefitStatusChange = async (benefit: ContractBenefit) => {
+    if (!professional) return;
+
+    const isActive = benefit.status !== "inactive";
+    const { error } = await (supabase as any)
+      .from("contractor_financial_benefits")
+      .update({ status: isActive ? "inactive" : "active" })
+      .eq("id", benefit.id)
+      .eq("company_id", professional.company_id)
+      .eq("contractor_id", professional.id);
+
+    if (error) {
+      setBenefitError("Não foi possível atualizar o status do benefício.");
+      return;
+    }
+
+    await loadBenefits();
   };
 
   if (isLoading) {
@@ -464,10 +522,7 @@ function ProfessionalDetailPage() {
               </div>
               <Button
                 type="button"
-                onClick={() => {
-                  setBenefitError("");
-                  setIsBenefitDialogOpen(true);
-                }}
+                onClick={openCreateBenefitDialog}
                 className="rounded-xl shadow-md shadow-primary/20 transition-all duration-200 hover:scale-[1.02] hover:shadow-primary/25 active:scale-[0.98]"
               >
                 <Plus className="size-4" />
@@ -482,12 +537,17 @@ function ProfessionalDetailPage() {
             ) : benefits.length > 0 ? (
               <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {benefits.map((benefit) => (
-                  <article key={benefit.id} className="rounded-xl border border-border/60 bg-muted/20 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+                  <article key={benefit.id} className={`rounded-xl border p-4 transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg ${benefit.status === "inactive" ? "border-border/60 bg-muted/40 opacity-75" : "border-border/60 bg-muted/20"}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-semibold text-foreground">
-                          {BENEFIT_TYPES.find((type) => type.value === benefit.tipo)?.label ?? "Outros"}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-foreground">
+                            {BENEFIT_TYPES.find((type) => type.value === benefit.tipo)?.label ?? "Outros"}
+                          </p>
+                          <Badge variant="outline" className={`rounded-full px-2 py-0.5 ${benefit.status === "inactive" ? "border-border bg-muted text-muted-foreground" : "border-success/30 bg-success/10 text-success"}`}>
+                            {benefit.status === "inactive" ? "Inativo" : "Ativo"}
+                          </Badge>
+                        </div>
                         <p className="mt-1 text-sm text-muted-foreground">{PERIODICITY_LABELS[benefit.periodicidade] ?? benefit.periodicidade}</p>
                       </div>
                       <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 text-primary">
@@ -500,6 +560,14 @@ function ProfessionalDetailPage() {
                       {!benefit.data_pagamento && benefit.mes_pagamento && <p>Mês previsto: {MONTHS[benefit.mes_pagamento - 1]}</p>}
                     </div>
                     {benefit.observacoes && <p className="mt-3 border-t border-border/60 pt-3 text-sm leading-6 text-muted-foreground">{benefit.observacoes}</p>}
+                    <div className="mt-4 flex flex-wrap gap-2 border-t border-border/60 pt-3">
+                      <Button type="button" variant="outline" size="sm" onClick={() => openEditBenefitDialog(benefit)} className="rounded-lg">
+                        Editar
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => void handleBenefitStatusChange(benefit)} className="rounded-lg text-muted-foreground hover:text-foreground">
+                        {benefit.status === "inactive" ? "Ativar" : "Desativar"}
+                      </Button>
+                    </div>
                   </article>
                 ))}
               </div>
@@ -566,13 +634,25 @@ function ProfessionalDetailPage() {
         </div>
       </div>
 
-      <Dialog open={isBenefitDialogOpen} onOpenChange={setIsBenefitDialogOpen}>
+      <Dialog
+        open={isBenefitDialogOpen}
+        onOpenChange={(open) => {
+          setIsBenefitDialogOpen(open);
+          if (!open) {
+            setBenefitError("");
+            setEditingBenefitId(null);
+            setBenefitForm(initialBenefitForm);
+          }
+        }}
+      >
         <DialogContent className="max-h-[90vh] overflow-y-auto border-border/60 bg-background sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle className="text-2xl" style={{ fontFamily: "var(--font-display)" }}>Adicionar benefício</DialogTitle>
+            <DialogTitle className="text-2xl" style={{ fontFamily: "var(--font-display)" }}>
+              {editingBenefitId ? "Editar benefício" : "Adicionar benefício"}
+            </DialogTitle>
             <DialogDescription>Defina as condições financeiras adicionais deste contrato.</DialogDescription>
           </DialogHeader>
-          <form className="space-y-5" onSubmit={handleCreateBenefit}>
+          <form className="space-y-5" onSubmit={handleSaveBenefit}>
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="benefit-type">Tipo de benefício</Label>
@@ -620,7 +700,7 @@ function ProfessionalDetailPage() {
             {benefitError && <div className="rounded-xl border border-destructive/25 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">{benefitError}</div>}
             <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" onClick={() => setIsBenefitDialogOpen(false)} disabled={isSavingBenefit} className="rounded-xl">Cancelar</Button>
-              <Button type="submit" disabled={isSavingBenefit} className="rounded-xl shadow-md shadow-primary/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">{isSavingBenefit ? "Salvando..." : "Salvar benefício"}</Button>
+              <Button type="submit" disabled={isSavingBenefit} className="rounded-xl shadow-md shadow-primary/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">{isSavingBenefit ? "Salvando..." : editingBenefitId ? "Salvar alterações" : "Salvar benefício"}</Button>
             </div>
           </form>
         </DialogContent>

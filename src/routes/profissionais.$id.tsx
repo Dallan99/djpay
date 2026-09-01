@@ -86,6 +86,7 @@ type BenefitForm = {
   mes_pagamento: string;
   data_pagamento: string;
   observacoes: string;
+  calendario_personalizado: string;
 };
 
 const BENEFIT_TYPES = [
@@ -100,13 +101,47 @@ const BENEFIT_TYPES = [
 ] as const;
 
 const PERIODICITY_LABELS: Record<string, string> = {
+  nao_aplicavel: "Não aplicável",
   mensal: "Mensal",
   trimestral: "Trimestral",
   semestral: "Semestral",
   anual: "Anual",
   unico: "Pagamento único",
-  personalizado: "Personalizado",
+  personalizado: "Calendário personalizado",
 };
+
+const THIRTEENTH_CONFIGURATION_PREFIX = "[13th_note_config]";
+
+function getInstallmentCount(periodicity: string, customCalendar = "") {
+  if (periodicity === "anual") return 1;
+  if (periodicity === "semestral") return 2;
+  if (periodicity === "trimestral") return 4;
+  if (periodicity === "mensal") return 12;
+  if (periodicity === "personalizado") {
+    return customCalendar.split(",").map((date) => date.trim()).filter(Boolean).length;
+  }
+  return 0;
+}
+
+function getThirteenthConfiguration(notes: string | null) {
+  if (!notes?.startsWith(THIRTEENTH_CONFIGURATION_PREFIX)) {
+    return { calendario: "", observacoes: notes ?? "" };
+  }
+
+  const [configuration, ...noteParts] = notes.split("\n");
+  try {
+    const parsed = JSON.parse(configuration.replace(THIRTEENTH_CONFIGURATION_PREFIX, "")) as { calendario?: string };
+    return { calendario: parsed.calendario ?? "", observacoes: noteParts.join("\n").trim() };
+  } catch {
+    return { calendario: "", observacoes: noteParts.join("\n").trim() };
+  }
+}
+
+function getBenefitInstallmentValue(benefit: ContractBenefit) {
+  const configuration = getThirteenthConfiguration(benefit.observacoes);
+  const installments = getInstallmentCount(benefit.periodicidade, configuration.calendario);
+  return installments > 0 ? benefit.valor / installments : null;
+}
 
 const MONTHS = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -121,6 +156,7 @@ const initialBenefitForm: BenefitForm = {
   mes_pagamento: "",
   data_pagamento: "",
   observacoes: "",
+  calendario_personalizado: "",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -269,6 +305,7 @@ function ProfessionalDetailPage() {
   const openEditBenefitDialog = (benefit: ContractBenefit) => {
     setBenefitError("");
     setEditingBenefitId(benefit.id);
+    const thirteenthConfiguration = getThirteenthConfiguration(benefit.observacoes);
     setBenefitForm({
       tipo: benefit.tipo,
       valor: String(benefit.valor),
@@ -276,7 +313,8 @@ function ProfessionalDetailPage() {
       requer_nota_fiscal: benefit.requer_nota_fiscal ? "sim" : "nao",
       mes_pagamento: benefit.mes_pagamento ? String(benefit.mes_pagamento) : "",
       data_pagamento: benefit.data_pagamento ?? "",
-      observacoes: benefit.observacoes ?? "",
+      observacoes: thirteenthConfiguration.observacoes,
+      calendario_personalizado: thirteenthConfiguration.calendario,
     });
     setIsBenefitDialogOpen(true);
   };
@@ -292,6 +330,15 @@ function ProfessionalDetailPage() {
       return;
     }
 
+    const isThirteenthInvoice = benefitForm.tipo === "thirteenth_invoice";
+    const installments = getInstallmentCount(benefitForm.periodicidade, benefitForm.calendario_personalizado);
+
+    if (isThirteenthInvoice && benefitForm.periodicidade === "personalizado" && installments === 0) {
+      setBenefitError("Informe ao menos uma data no calendário personalizado.");
+      return;
+    }
+
+    const thirteenthNotes = `${THIRTEENTH_CONFIGURATION_PREFIX}${JSON.stringify({ calendario: benefitForm.calendario_personalizado.trim() })}`;
     const benefitData = {
       tipo: benefitForm.tipo,
       valor: value,
@@ -299,7 +346,9 @@ function ProfessionalDetailPage() {
       requer_nota_fiscal: benefitForm.requer_nota_fiscal === "sim",
       mes_pagamento: benefitForm.mes_pagamento ? Number(benefitForm.mes_pagamento) : null,
       data_pagamento: benefitForm.data_pagamento || null,
-      observacoes: benefitForm.observacoes.trim() || null,
+      observacoes: isThirteenthInvoice
+        ? [thirteenthNotes, benefitForm.observacoes.trim()].filter(Boolean).join("\n")
+        : benefitForm.observacoes.trim() || null,
     };
 
     setIsSavingBenefit(true);
@@ -551,15 +600,20 @@ function ProfessionalDetailPage() {
                         <p className="mt-1 text-sm text-muted-foreground">{PERIODICITY_LABELS[benefit.periodicidade] ?? benefit.periodicidade}</p>
                       </div>
                       <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 text-primary">
-                        {formatCurrency(benefit.valor)}
+                        {benefit.tipo === "thirteenth_invoice" ? `Total: ${formatCurrency(benefit.valor)}` : formatCurrency(benefit.valor)}
                       </Badge>
                     </div>
                     <div className="mt-4 space-y-1 text-xs text-muted-foreground">
+                      {benefit.tipo === "thirteenth_invoice" && benefit.periodicidade !== "nao_aplicavel" && getBenefitInstallmentValue(benefit) !== null && (
+                        <p className="font-medium text-primary">{getInstallmentCount(benefit.periodicidade, getThirteenthConfiguration(benefit.observacoes).calendario)} parcela(s) de {formatCurrency(getBenefitInstallmentValue(benefit))}</p>
+                      )}
+                      {benefit.tipo === "thirteenth_invoice" && benefit.periodicidade === "nao_aplicavel" && <p>Condição não aplicável a este contrato.</p>}
                       <p>{benefit.requer_nota_fiscal ? "Requer nota fiscal" : "Não requer nota fiscal"}</p>
                       {benefit.data_pagamento && <p>Pagamento: {formatDate(benefit.data_pagamento)}</p>}
                       {!benefit.data_pagamento && benefit.mes_pagamento && <p>Mês previsto: {MONTHS[benefit.mes_pagamento - 1]}</p>}
                     </div>
-                    {benefit.observacoes && <p className="mt-3 border-t border-border/60 pt-3 text-sm leading-6 text-muted-foreground">{benefit.observacoes}</p>}
+                    {getThirteenthConfiguration(benefit.observacoes).calendario && <p className="mt-3 border-t border-border/60 pt-3 text-sm leading-6 text-muted-foreground">Calendário: {getThirteenthConfiguration(benefit.observacoes).calendario}</p>}
+                    {getThirteenthConfiguration(benefit.observacoes).observacoes && <p className="mt-3 border-t border-border/60 pt-3 text-sm leading-6 text-muted-foreground">{getThirteenthConfiguration(benefit.observacoes).observacoes}</p>}
                     <div className="mt-4 flex flex-wrap gap-2 border-t border-border/60 pt-3">
                       <Button type="button" variant="outline" size="sm" onClick={() => openEditBenefitDialog(benefit)} className="rounded-lg">
                         Editar
@@ -662,7 +716,7 @@ function ProfessionalDetailPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="benefit-value">Valor</Label>
+                <Label htmlFor="benefit-value">{benefitForm.tipo === "thirteenth_invoice" ? "Valor total previsto" : "Valor"}</Label>
                 <Input id="benefit-value" type="number" min="0" step="0.01" required value={benefitForm.valor} onChange={(event) => updateBenefitField("valor", event.target.value)} placeholder="Ex.: 500,00" className="h-10 rounded-xl" />
               </div>
               <div className="space-y-2">
@@ -670,7 +724,8 @@ function ProfessionalDetailPage() {
                 <Select value={benefitForm.periodicidade} onValueChange={(value) => updateBenefitField("periodicidade", value)}>
                   <SelectTrigger id="benefit-periodicity" className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="mensal">Mensal</SelectItem><SelectItem value="trimestral">Trimestral</SelectItem><SelectItem value="semestral">Semestral</SelectItem><SelectItem value="anual">Anual</SelectItem><SelectItem value="unico">Pagamento único</SelectItem><SelectItem value="personalizado">Personalizado</SelectItem>
+                    {benefitForm.tipo === "thirteenth_invoice" && <SelectItem value="nao_aplicavel">Não aplicável</SelectItem>}
+                    <SelectItem value="mensal">Mensal</SelectItem><SelectItem value="trimestral">Trimestral</SelectItem><SelectItem value="semestral">Semestral</SelectItem><SelectItem value="anual">Anual</SelectItem><SelectItem value="unico">Pagamento único</SelectItem><SelectItem value="personalizado">Calendário personalizado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -693,6 +748,22 @@ function ProfessionalDetailPage() {
                 <Input id="benefit-date" type="date" value={benefitForm.data_pagamento} onChange={(event) => updateBenefitField("data_pagamento", event.target.value)} className="h-10 rounded-xl" />
               </div>
             </div>
+            {benefitForm.tipo === "thirteenth_invoice" && (
+              <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
+                <p className="text-sm font-semibold text-foreground">Configuração da 13ª nota</p>
+                {benefitForm.periodicidade === "personalizado" && (
+                  <div className="mt-3 space-y-2">
+                    <Label htmlFor="thirteenth-calendar">Datas previstas do calendário</Label>
+                    <Input id="thirteenth-calendar" value={benefitForm.calendario_personalizado} onChange={(event) => updateBenefitField("calendario_personalizado", event.target.value)} placeholder="Ex.: 15/03, 15/06, 15/09, 15/12" className="h-10 rounded-xl" />
+                    <p className="text-xs leading-5 text-muted-foreground">Informe uma data para cada parcela, separando-as por vírgula.</p>
+                  </div>
+                )}
+                {benefitForm.periodicidade !== "nao_aplicavel" && benefitForm.valor && getInstallmentCount(benefitForm.periodicidade, benefitForm.calendario_personalizado) > 0 && (
+                  <p className="mt-3 text-sm text-primary">{getInstallmentCount(benefitForm.periodicidade, benefitForm.calendario_personalizado)} parcela(s) previstas de {formatCurrency(Number(benefitForm.valor) / getInstallmentCount(benefitForm.periodicidade, benefitForm.calendario_personalizado))}.</p>
+                )}
+                {benefitForm.periodicidade === "nao_aplicavel" && <p className="mt-2 text-sm text-muted-foreground">Esta condição ficará registrada como não aplicável ao contrato atual.</p>}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="benefit-notes">Observações</Label>
               <textarea id="benefit-notes" value={benefitForm.observacoes} onChange={(event) => updateBenefitField("observacoes", event.target.value)} placeholder="Registre condições ou regras específicas." className="min-h-24 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-all duration-200 placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/25" />

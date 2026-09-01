@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
@@ -714,11 +714,19 @@ function ProfessionalsPage() {
                       <span className="truncate">{professional.email || "E-mail não informado"}</span>
                       <span>{professional.telefone || "Telefone não informado"}</span>
                     </div>
-                    <div className="flex items-center gap-3 sm:min-w-40 sm:justify-end">
+                    <div className="flex flex-wrap items-center gap-3 sm:min-w-52 sm:justify-end">
                       {professional.gestor && <span className="text-sm text-muted-foreground">Gestor: {professional.gestor}</span>}
                       <Badge variant="outline" className={`rounded-full px-3 py-1 ${STATUS_STYLE[professional.status] ?? "border-border bg-muted text-muted-foreground"}`}>
                         {getStatusLabel(professional.status)}
                       </Badge>
+                      <Link
+                        to="/profissionais/$id"
+                        params={{ id: professional.id }}
+                        className="inline-flex items-center gap-1 text-sm font-semibold text-primary transition-colors hover:text-primary/75"
+                      >
+                        Ver perfil
+                        <ChevronRight className="size-4" />
+                      </Link>
                     </div>
                   </article>
                 );

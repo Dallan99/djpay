@@ -154,16 +154,14 @@ const initialAccount: AccountSummary = {
   email: "",
 };
 
-function Brand() {
+function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/20">
-        <Sparkles className="size-5" />
-      </div>
-      <div>
-        <p className="font-semibold tracking-tight text-foreground">DJ PAY</p>
-        <p className="text-xs text-muted-foreground">Gestão financeira PJ</p>
-      </div>
+    <div className="flex min-w-0 items-center">
+      <img
+        src="/uploads/imagem-do-codex-1-de-set-de-2026-14-43-4-1.png"
+        alt="DJ PAY — Pagamentos para PJ"
+        className={`block h-auto object-contain ${compact ? "w-28 sm:w-32" : "w-44 lg:w-52"}`}
+      />
     </div>
   );
 }
@@ -286,7 +284,7 @@ function RootComponent() {
 
         <div className="min-w-0">
           <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border/60 bg-background/80 px-4 backdrop-blur-md lg:hidden">
-            <Brand />
+            <Brand compact />
             <button
               type="button"
               aria-label="Abrir menu"

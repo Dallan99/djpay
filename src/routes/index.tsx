@@ -6,6 +6,7 @@ import {
   ChevronRight,
   FileText,
   Filter,
+  Plus,
   Search,
   Upload,
   User,
@@ -421,6 +422,30 @@ type Professional = {
   status: string;
 };
 
+type ProfessionalForm = {
+  nome_completo: string;
+  cpf_cnpj: string;
+  email: string;
+  telefone: string;
+  cargo: string;
+  area: string;
+  gestor: string;
+  data_inicio: string;
+  status: string;
+};
+
+const initialProfessionalForm: ProfessionalForm = {
+  nome_completo: "",
+  cpf_cnpj: "",
+  email: "",
+  telefone: "",
+  cargo: "",
+  area: "",
+  gestor: "",
+  data_inicio: "",
+  status: "active",
+};
+
 function ProfessionalsPage() {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -428,6 +453,11 @@ function ProfessionalsPage() {
   const [areaFilter, setAreaFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [companyId, setCompanyId] = useState("");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [formData, setFormData] = useState<ProfessionalForm>(initialProfessionalForm);
 
   useEffect(() => {
     let active = true;
@@ -456,6 +486,10 @@ function ProfessionalsPage() {
           setIsLoading(false);
         }
         return;
+      }
+
+      if (active) {
+        setCompanyId(companyId);
       }
 
       const { data, error } = await supabase
@@ -515,6 +549,60 @@ function ProfessionalsPage() {
   const getStatusLabel = (status: string) =>
     STATUS_OPTIONS.find((option) => option.value === status)?.label ?? "Não informado";
 
+  const updateFormField = <Key extends keyof ProfessionalForm>(key: Key, value: ProfessionalForm[Key]) => {
+    setFormData((current) => ({ ...current, [key]: value }));
+  };
+
+  const handleCreateProfessional = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setFormError("");
+
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    const authenticatedCompanyId =
+      typeof authData.user?.user_metadata?.company_id === "string"
+        ? authData.user.user_metadata.company_id
+        : "";
+
+    if (authError || !authData.user || !authenticatedCompanyId || authenticatedCompanyId !== companyId) {
+      setFormError("Não foi possível confirmar sua empresa. Faça login novamente e tente de novo.");
+      return;
+    }
+
+    setIsSaving(true);
+
+    const { data, error } = await supabase
+      .from("contractors")
+      .insert({
+        company_id: authenticatedCompanyId,
+        nome_completo: formData.nome_completo.trim(),
+        cpf_cnpj: formData.cpf_cnpj.trim() || null,
+        email: formData.email.trim() || null,
+        telefone: formData.telefone.trim() || null,
+        cargo: formData.cargo.trim() || null,
+        area: formData.area.trim() || null,
+        gestor: formData.gestor.trim() || null,
+        data_inicio: formData.data_inicio || null,
+        status: formData.status,
+      })
+      .select("id, company_id, nome_completo, cpf_cnpj, email, telefone, cargo, area, gestor, data_inicio, status")
+      .single();
+
+    setIsSaving(false);
+
+    if (error || !data) {
+      setFormError("Não foi possível cadastrar o profissional. Verifique os dados e suas permissões de acesso.");
+      return;
+    }
+
+    setProfessionals((current) =>
+      [...current, data].sort((first, second) =>
+        first.nome_completo.localeCompare(second.nome_completo, "pt-BR"),
+      ),
+    );
+    setFormData(initialProfessionalForm);
+    setIsCreateDialogOpen(false);
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 font-sans">
       <div className="mx-auto max-w-7xl px-5 py-10 sm:px-8 sm:py-14">
@@ -530,11 +618,24 @@ function ProfessionalsPage() {
               Consulte os profissionais vinculados à sua empresa e acompanhe seus dados cadastrais em um só lugar.
             </p>
           </div>
-          <div className="rounded-2xl border border-border/60 bg-card/75 px-4 py-3 shadow-sm shadow-black/5">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Total cadastrado</p>
-            <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground tabular-nums" style={{ fontFamily: "var(--font-display)" }}>
-              {isLoading ? "—" : professionals.length}
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl border border-border/60 bg-card/75 px-4 py-3 shadow-sm shadow-black/5">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Total cadastrado</p>
+              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground tabular-nums" style={{ fontFamily: "var(--font-display)" }}>
+                {isLoading ? "—" : professionals.length}
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={() => {
+                setFormError("");
+                setIsCreateDialogOpen(true);
+              }}
+              className="h-11 rounded-xl shadow-md shadow-primary/20 transition-all duration-200 hover:scale-[1.02] hover:shadow-primary/25 active:scale-[0.98]"
+            >
+              <Plus className="size-4" />
+              Novo profissional
+            </Button>
           </div>
         </div>
 
@@ -632,6 +733,82 @@ function ProfessionalsPage() {
           )}
         </section>
       </div>
+
+      <Dialog
+        open={isCreateDialogOpen}
+        onOpenChange={(open) => {
+          setIsCreateDialogOpen(open);
+          if (!open) setFormError("");
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto border-border/60 bg-background sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl" style={{ fontFamily: "var(--font-display)" }}>
+              Novo profissional
+            </DialogTitle>
+            <DialogDescription>
+              O cadastro será vinculado automaticamente à empresa da sua sessão.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form className="space-y-5" onSubmit={handleCreateProfessional}>
+            <div className="space-y-2">
+              <Label htmlFor="professional-name">Nome completo</Label>
+              <Input id="professional-name" value={formData.nome_completo} onChange={(event) => updateFormField("nome_completo", event.target.value)} placeholder="Ex.: Marina Oliveira" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" required />
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="professional-cpf">CPF ou CNPJ</Label>
+                <Input id="professional-cpf" value={formData.cpf_cnpj} onChange={(event) => updateFormField("cpf_cnpj", event.target.value)} placeholder="000.000.000-00" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="professional-status">Status</Label>
+                <Select value={formData.status} onValueChange={(value) => updateFormField("status", value)}>
+                  <SelectTrigger id="professional-status" className="h-10 rounded-xl focus:ring-2 focus:ring-primary/25"><SelectValue /></SelectTrigger>
+                  <SelectContent>{STATUS_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="professional-email">E-mail</Label>
+                <Input id="professional-email" type="email" value={formData.email} onChange={(event) => updateFormField("email", event.target.value)} placeholder="nome@empresa.com" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="professional-phone">Telefone</Label>
+                <Input id="professional-phone" type="tel" value={formData.telefone} onChange={(event) => updateFormField("telefone", event.target.value)} placeholder="(00) 00000-0000" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+              </div>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="professional-role">Cargo</Label>
+                <Input id="professional-role" value={formData.cargo} onChange={(event) => updateFormField("cargo", event.target.value)} placeholder="Ex.: Analista financeiro" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="professional-area">Área</Label>
+                <Input id="professional-area" value={formData.area} onChange={(event) => updateFormField("area", event.target.value)} placeholder="Ex.: Financeiro" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+              </div>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="professional-manager">Gestor</Label>
+                <Input id="professional-manager" value={formData.gestor} onChange={(event) => updateFormField("gestor", event.target.value)} placeholder="Ex.: João Silva" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="professional-start-date">Data de início</Label>
+                <Input id="professional-start-date" type="date" value={formData.data_inicio} onChange={(event) => updateFormField("data_inicio", event.target.value)} className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+              </div>
+            </div>
+            {formError && <div className="flex items-start gap-2 rounded-xl border border-destructive/25 bg-destructive/5 px-3 py-2.5 text-sm text-destructive"><AlertCircle className="mt-0.5 size-4 shrink-0" />{formError}</div>}
+            <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={isSaving} className="rounded-xl">Cancelar</Button>
+              <Button type="submit" disabled={isSaving || !companyId} className="rounded-xl shadow-md shadow-primary/20 transition-all duration-200 hover:scale-[1.02] hover:shadow-primary/25 active:scale-[0.98]">
+                {isSaving ? "Salvando..." : "Cadastrar profissional"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

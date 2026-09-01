@@ -89,14 +89,14 @@ type BenefitForm = {
 };
 
 const BENEFIT_TYPES = [
-  { value: "cost_allowance", label: "Ajuda de custo" },
-  { value: "thirteenth_invoice", label: "13ª nota" },
-  { value: "paid_vacation", label: "Férias remuneradas" },
-  { value: "bonus", label: "Bônus" },
-  { value: "profit_sharing", label: "PLR" },
-  { value: "commission", label: "Comissão" },
-  { value: "award", label: "Prêmio" },
-  { value: "other", label: "Outros" },
+  { value: "cost_allowance", label: "Ajuda de custo (condição contratual)" },
+  { value: "thirteenth_invoice", label: "13ª nota (condição contratual)" },
+  { value: "paid_vacation", label: "Férias remuneradas (condição contratual)" },
+  { value: "bonus", label: "Bônus (condição contratual)" },
+  { value: "profit_sharing", label: "PLR (condição contratual)" },
+  { value: "commission", label: "Comissão (condição contratual)" },
+  { value: "award", label: "Prêmio (condição contratual)" },
+  { value: "other", label: "Outra condição contratual" },
 ] as const;
 
 const PERIODICITY_LABELS: Record<string, string> = {
@@ -288,7 +288,7 @@ function ProfessionalDetailPage() {
     if (!professional) return;
     const value = Number(benefitForm.valor);
     if (!benefitForm.valor || Number.isNaN(value) || value < 0) {
-      setBenefitError("Informe um valor válido para o benefício.");
+      setBenefitError("Informe um valor válido para a condição comercial.");
       return;
     }
 
@@ -319,7 +319,7 @@ function ProfessionalDetailPage() {
 
     setIsSavingBenefit(false);
     if (error) {
-      setBenefitError("Não foi possível salvar o benefício. Verifique suas permissões e tente novamente.");
+      setBenefitError("Não foi possível salvar a condição comercial. Verifique suas permissões e tente novamente.");
       return;
     }
 
@@ -341,7 +341,7 @@ function ProfessionalDetailPage() {
       .eq("contractor_id", professional.id);
 
     if (error) {
-      setBenefitError("Não foi possível atualizar o status do benefício.");
+      setBenefitError("Não foi possível atualizar o status da condição comercial.");
       return;
     }
 
@@ -483,7 +483,7 @@ function ProfessionalDetailPage() {
                 <h2 className="text-xl font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
                   Contrato financeiro
                 </h2>
-                <p className="text-sm text-muted-foreground">Condições financeiras individuais deste profissional PJ.</p>
+                <p className="text-sm text-muted-foreground">Condições comerciais individuais acordadas entre a empresa e este prestador PJ.</p>
               </div>
               {professional.contrato_status && (
                 <Badge variant="outline" className="ml-auto rounded-full border-primary/20 bg-primary/5 px-3 py-1 capitalize text-primary">
@@ -493,7 +493,7 @@ function ProfessionalDetailPage() {
             </div>
             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <DetailItem label="Valor mensal" value={formatCurrency(professional.valor_mensal)} />
-              <DetailItem label="Ajuda de custo" value={formatCurrency(professional.ajuda_custo)} />
+              <DetailItem label="Ajuda de custo acordada" value={formatCurrency(professional.ajuda_custo)} />
               <DetailItem label="Data de vencimento" value={formatDate(professional.data_vencimento)} />
               <DetailItem label="Data de início" value={formatDate(professional.data_inicio)} />
               <DetailItem label="Data de encerramento" value={formatDate(professional.data_encerramento)} />
@@ -515,9 +515,9 @@ function ProfessionalDetailPage() {
                 </div>
                 <div>
                   <h2 className="text-xl font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
-                    Benefícios financeiros
+                    Condições comerciais configuráveis
                   </h2>
-                  <p className="text-sm text-muted-foreground">Condições adicionais configuradas para este contrato.</p>
+                  <p className="text-sm text-muted-foreground">Itens financeiros definidos em contrato entre a empresa e este prestador PJ.</p>
                 </div>
               </div>
               <Button
@@ -526,7 +526,7 @@ function ProfessionalDetailPage() {
                 className="rounded-xl shadow-md shadow-primary/20 transition-all duration-200 hover:scale-[1.02] hover:shadow-primary/25 active:scale-[0.98]"
               >
                 <Plus className="size-4" />
-                Adicionar benefício
+                Adicionar condição
               </Button>
             </div>
 
@@ -573,8 +573,8 @@ function ProfessionalDetailPage() {
               </div>
             ) : (
               <div className="mt-6 rounded-xl border border-dashed border-border bg-muted/20 px-5 py-8 text-center">
-                <p className="font-medium text-foreground">Nenhum benefício adicional cadastrado</p>
-                <p className="mt-1 text-sm text-muted-foreground">Adicione ajuda de custo, 13ª nota, férias, bônus ou outras condições deste contrato.</p>
+                <p className="font-medium text-foreground">Nenhuma condição comercial adicional cadastrada</p>
+                <p className="mt-1 text-sm text-muted-foreground">Adicione itens acordados, como ajuda de custo, 13ª nota, férias remuneradas, bônus ou outras condições deste contrato.</p>
               </div>
             )}
           </CardContent>
@@ -648,14 +648,14 @@ function ProfessionalDetailPage() {
         <DialogContent className="max-h-[90vh] overflow-y-auto border-border/60 bg-background sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="text-2xl" style={{ fontFamily: "var(--font-display)" }}>
-              {editingBenefitId ? "Editar benefício" : "Adicionar benefício"}
+              {editingBenefitId ? "Editar condição comercial" : "Adicionar condição comercial"}
             </DialogTitle>
-            <DialogDescription>Defina as condições financeiras adicionais deste contrato.</DialogDescription>
+            <DialogDescription>Defina itens financeiros comerciais acordados entre a empresa e o prestador. Eles não representam direitos trabalhistas obrigatórios.</DialogDescription>
           </DialogHeader>
           <form className="space-y-5" onSubmit={handleSaveBenefit}>
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="benefit-type">Tipo de benefício</Label>
+                <Label htmlFor="benefit-type">Tipo de condição comercial</Label>
                 <Select value={benefitForm.tipo} onValueChange={(value) => updateBenefitField("tipo", value)}>
                   <SelectTrigger id="benefit-type" className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent>{BENEFIT_TYPES.map((type) => <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>)}</SelectContent>
@@ -700,7 +700,7 @@ function ProfessionalDetailPage() {
             {benefitError && <div className="rounded-xl border border-destructive/25 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">{benefitError}</div>}
             <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" onClick={() => setIsBenefitDialogOpen(false)} disabled={isSavingBenefit} className="rounded-xl">Cancelar</Button>
-              <Button type="submit" disabled={isSavingBenefit} className="rounded-xl shadow-md shadow-primary/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">{isSavingBenefit ? "Salvando..." : editingBenefitId ? "Salvar alterações" : "Salvar benefício"}</Button>
+              <Button type="submit" disabled={isSavingBenefit} className="rounded-xl shadow-md shadow-primary/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">{isSavingBenefit ? "Salvando..." : editingBenefitId ? "Salvar alterações" : "Salvar condição"}</Button>
             </div>
           </form>
         </DialogContent>

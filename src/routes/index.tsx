@@ -51,17 +51,17 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Painel PJ — 13ª nota, férias e ajuda de custo" },
+      { title: "DJ PAY — condições comerciais para prestadores PJ" },
       {
         name: "description",
         content:
-          "Organize seu contrato PJ: salário, ajuda de custo, 13ª nota parcelada e férias remuneradas, com o calendário de notas a emitir no ano.",
+          "Organize condições comerciais acordadas em contrato PJ, incluindo valores, ajuda de custo e demais itens configuráveis.",
       },
-      { property: "og:title", content: "Painel PJ — 13ª nota, férias e ajuda de custo" },
+      { property: "og:title", content: "DJ PAY — condições comerciais para prestadores PJ" },
       {
         property: "og:description",
         content:
-          "Calendário de notas fiscais para quem trabalha como PJ: salário, ajuda de custo, 13ª nota e férias.",
+          "Gestão de condições financeiras contratuais e calendário de notas fiscais para prestadores PJ.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -113,8 +113,8 @@ function LegacyPjPanel() {
             Painel de pagamentos PJ
           </h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            Salário, ajuda de custo, 13ª nota (integral ou trimestral) e férias
-            remuneradas — com o calendário de todas as notas que você precisa emitir no
+            Valor mensal e condições comerciais acordadas, como ajuda de custo, 13ª nota
+            e férias remuneradas, configuradas em contrato com calendário de notas para o
             ano.
           </p>
         </div>
@@ -124,8 +124,7 @@ function LegacyPjPanel() {
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard title="Total no ano" value={brl(t.total)} hint="soma de todas as notas" />
           <StatCard title="Média mensal" value={brl(t.media)} hint="total ÷ 12 meses" />
-          <StatCard
-            title="13ª nota"
+          <StatCard title="13ª nota acordada"
             value={brl(t.decimo)}
             hint={
               config.decimoModo === "trimestral"
@@ -136,7 +135,7 @@ function LegacyPjPanel() {
             }
           />
           <StatCard
-            title="Férias"
+            title="Férias acordadas"
             value={brl(t.ferias)}
             hint={`${config.feriasDias} dias em ${MESES[config.feriasMes - 1]}`}
           />
@@ -154,7 +153,7 @@ function LegacyPjPanel() {
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="salario">Salário mensal (nota)</Label>
+                <Label htmlFor="salario">Valor mensal contratado (nota)</Label>
                 <Input
                   id="salario"
                   type="number"
@@ -165,7 +164,7 @@ function LegacyPjPanel() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="ajuda">Ajuda de custo mensal</Label>
+                <Label htmlFor="ajuda">Ajuda de custo mensal acordada</Label>
                 <Input
                   id="ajuda"
                   type="number"
@@ -176,7 +175,7 @@ function LegacyPjPanel() {
               </div>
 
               <div className="space-y-2">
-                <Label>13ª nota</Label>
+                <Label>13ª nota acordada</Label>
                 <Select
                   value={config.decimoModo}
                   onValueChange={(v) => update("decimoModo", v as "dezembro" | "trimestral")}
@@ -213,7 +212,7 @@ function LegacyPjPanel() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Dias de férias</Label>
+                  <Label>Dias de férias acordados</Label>
                   <Select
                     value={String(config.feriasDias)}
                     onValueChange={(v) => update("feriasDias", Number(v) as 10 | 20 | 30)}
@@ -229,7 +228,7 @@ function LegacyPjPanel() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Mês das férias</Label>
+                  <Label>Mês das férias acordado</Label>
                   <Select
                     value={String(config.feriasMes)}
                     onValueChange={(v) => update("feriasMes", Number(v))}
@@ -945,7 +944,7 @@ function ProfessionalsPage() {
             <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:p-5">
               <div className="mb-4">
                 <p className="font-semibold text-foreground">Contrato financeiro</p>
-                <p className="mt-1 text-sm text-muted-foreground">Defina as condições individuais acordadas com este profissional PJ.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Defina as condições comerciais individuais acordadas com este profissional PJ.</p>
               </div>
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -953,7 +952,7 @@ function ProfessionalsPage() {
                   <Input id="professional-monthly-value" type="number" min="0" step="0.01" value={formData.valor_mensal} onChange={(event) => updateFormField("valor_mensal", event.target.value)} placeholder="Ex.: 8500,00" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="professional-cost-aid">Ajuda de custo mensal</Label>
+                  <Label htmlFor="professional-cost-aid">Ajuda de custo mensal acordada</Label>
                   <Input id="professional-cost-aid" type="number" min="0" step="0.01" value={formData.ajuda_custo} onChange={(event) => updateFormField("ajuda_custo", event.target.value)} placeholder="Ex.: 500,00" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
                 </div>
                 <div className="space-y-2">

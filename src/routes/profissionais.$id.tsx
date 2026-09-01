@@ -91,6 +91,7 @@ type BenefitForm = {
   ferias_dias: string;
   ferias_dias_utilizados: string;
   ferias_remuneradas: string;
+  ferias_pagamento: string;
 };
 
 const BENEFIT_TYPES = [
@@ -155,6 +156,7 @@ function getVacationConfiguration(notes: string | null) {
       dias: 0,
       diasUtilizados: 0,
       remuneradas: true,
+      pagamento: "separado",
       observacoes: notes ?? "",
     };
   }
@@ -166,12 +168,14 @@ function getVacationConfiguration(notes: string | null) {
       dias?: number;
       diasUtilizados?: number;
       remuneradas?: boolean;
+      pagamento?: "separado" | "junto_mensal";
     };
     return {
       ano: parsed.ano ?? new Date().getFullYear(),
       dias: parsed.dias ?? 0,
       diasUtilizados: parsed.diasUtilizados ?? 0,
       remuneradas: parsed.remuneradas ?? true,
+      pagamento: parsed.pagamento ?? "separado",
       observacoes: noteParts.join("\n").trim(),
     };
   } catch {
@@ -180,6 +184,7 @@ function getVacationConfiguration(notes: string | null) {
       dias: 0,
       diasUtilizados: 0,
       remuneradas: true,
+      pagamento: "separado",
       observacoes: noteParts.join("\n").trim(),
     };
   }
@@ -203,6 +208,7 @@ const initialBenefitForm: BenefitForm = {
   ferias_dias: "10",
   ferias_dias_utilizados: "0",
   ferias_remuneradas: "sim",
+  ferias_pagamento: "separado",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -366,6 +372,7 @@ function ProfessionalDetailPage() {
       ferias_dias: String(vacationConfiguration.dias || 10),
       ferias_dias_utilizados: String(vacationConfiguration.diasUtilizados),
       ferias_remuneradas: vacationConfiguration.remuneradas ? "sim" : "nao",
+      ferias_pagamento: vacationConfiguration.pagamento,
     });
     setIsBenefitDialogOpen(true);
   };
@@ -375,9 +382,17 @@ function ProfessionalDetailPage() {
     setBenefitError("");
 
     if (!professional) return;
-    const value = Number(benefitForm.valor);
-    if (!benefitForm.valor || Number.isNaN(value) || value < 0) {
-      setBenefitError("Informe um valor válido para a condição comercial.");
+    const isPaidVacation = benefitForm.tipo === "paid_vacation";
+    const vacationDays = Number(benefitForm.ferias_dias);
+    const vacationDaysUsed = Number(benefitForm.ferias_dias_utilizados);
+    const calculatedVacationValue =
+      isPaidVacation && benefitForm.ferias_remuneradas === "sim"
+        ? ((professional.valor_mensal ?? 0) / 30) * vacationDaysUsed
+        : 0;
+    const value = isPaidVacation ? calculatedVacationValue : Number(benefitForm.valor);
+
+    if ((!isPaidVacation && (!benefitForm.valor || Number.isNaN(value) || value < 0)) || (isPaidVacation && professional.valor_mensal === null)) {
+      setBenefitError(isPaidVacation ? "Informe o valor mensal no contrato para calcular as férias remuneradas." : "Informe um valor válido para a condição comercial.");
       return;
     }
 
@@ -390,10 +405,6 @@ function ProfessionalDetailPage() {
     }
 
     const thirteenthNotes = `${THIRTEENTH_CONFIGURATION_PREFIX}${JSON.stringify({ calendario: benefitForm.calendario_personalizado.trim() })}`;
-    const vacationDays = Number(benefitForm.ferias_dias);
-    const vacationDaysUsed = Number(benefitForm.ferias_dias_utilizados);
-    const isPaidVacation = benefitForm.tipo === "paid_vacation";
-
     if (isPaidVacation && (!Number.isInteger(vacationDays) || vacationDays < 1)) {
       setBenefitError("Informe uma quantidade válida de dias disponíveis para o período comercial.");
       return;
@@ -687,7 +698,8 @@ function ProfessionalDetailPage() {
                         return <>
                           <p className="font-medium text-primary">{vacation.ano}: {vacation.dias} dias disponíveis · {vacation.diasUtilizados} utilizados · {balance} de saldo</p>
                           <p>{vacation.remuneradas ? "Período comercial remunerado" : "Período comercial não remunerado"}</p>
-                        </>;
+                          {vacation.remuneradas && <p className="font-medium text-primary">{vacation.pagamento === "junto_mensal" ? "Pago junto ao valor mensal" : "Pago separadamente"}</p>}
+                        </>; 
                       })()}
                       <p>{benefit.requer_nota_fiscal ? "Requer nota fiscal" : "Não requer nota fiscal"}</p>
                       {benefit.data_pagamento && <p>Pagamento: {formatDate(benefit.data_pagamento)}</p>}
@@ -797,8 +809,8 @@ function ProfessionalDetailPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="benefit-value">{benefitForm.tipo === "thirteenth_invoice" ? "Valor total previsto" : benefitForm.tipo === "paid_vacation" ? "Valor comercial previsto" : "Valor"}</Label>
-                <Input id="benefit-value" type="number" min="0" step="0.01" required value={benefitForm.valor} onChange={(event) => updateBenefitField("valor", event.target.value)} placeholder="Ex.: 500,00" className="h-10 rounded-xl" />
+                <Label htmlFor="benefit-value">{benefitForm.tipo === "thirteenth_invoice" ? "Valor total previsto" : benefitForm.tipo === "paid_vacation" ? "Valor calculado das férias" : "Valor"}</Label>
+                <Input id="benefit-value" type="number" min="0" step="0.01" required={benefitForm.tipo !== "paid_vacation"} readOnly={benefitForm.tipo === "paid_vacation"} value={benefitForm.tipo === "paid_vacation" ? String(benefitForm.ferias_remuneradas === "sim" ? ((professional.valor_mensal ?? 0) / 30) * (Number(benefitForm.ferias_dias_utilizados) || 0) : 0) : benefitForm.valor} onChange={(event) => updateBenefitField("valor", event.target.value)} placeholder="Ex.: 500,00" className="h-10 rounded-xl read-only:bg-muted/50" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="benefit-periodicity">Periodicidade</Label>
@@ -862,9 +874,19 @@ function ProfessionalDetailPage() {
                       <SelectContent><SelectItem value="sim">Sim, remunerado</SelectItem><SelectItem value="nao">Não remunerado</SelectItem></SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="vacation-payment">Como será pago?</Label>
+                    <Select value={benefitForm.ferias_pagamento} onValueChange={(value) => updateBenefitField("ferias_pagamento", value)} disabled={benefitForm.ferias_remuneradas === "nao"}>
+                      <SelectTrigger id="vacation-payment" className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="separado">Pago separadamente</SelectItem><SelectItem value="junto_mensal">Junto ao pagamento mensal</SelectItem></SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 {Number.isFinite(Number(benefitForm.ferias_dias)) && (
-                  <p className="mt-4 text-sm text-primary">Saldo de {Math.max(Number(benefitForm.ferias_dias) - (Number(benefitForm.ferias_dias_utilizados) || 0), 0)} dia(s) para {benefitForm.ferias_ano || "o ano informado"}.</p>
+                  <div className="mt-4 rounded-lg border border-primary/15 bg-background/70 p-3 text-sm">
+                    <p className="text-primary">Saldo de {Math.max(Number(benefitForm.ferias_dias) - (Number(benefitForm.ferias_dias_utilizados) || 0), 0)} dia(s) para {benefitForm.ferias_ano || "o ano informado"}.</p>
+                    <p className="mt-1 text-muted-foreground">{benefitForm.ferias_remuneradas === "sim" ? `Cálculo: ${formatCurrency(professional.valor_mensal)} ÷ 30 × ${Number(benefitForm.ferias_dias_utilizados) || 0} dia(s) = ${formatCurrency(((professional.valor_mensal ?? 0) / 30) * (Number(benefitForm.ferias_dias_utilizados) || 0))}.` : "Período não remunerado: não há valor adicional a pagar."}</p>
+                  </div>
                 )}
               </div>
             )}

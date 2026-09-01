@@ -7,10 +7,26 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  FileText,
+  Menu,
+  ShieldCheck,
+  ShoppingCart,
+  Sparkles,
+  User,
+  X,
+} from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { supabase } from "../integrations/supabase/client";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetTitle,
+} from "../components/ui/sheet";
 
 function NotFoundComponent() {
   return (
@@ -118,13 +134,200 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+const navigationItems = [
+  { label: "Dashboard", icon: Sparkles },
+  { label: "Profissionais", icon: User },
+  { label: "Pagamentos", icon: ShoppingCart },
+  { label: "Notas Fiscais", icon: FileText },
+  { label: "Configurações", icon: ShieldCheck },
+] as const;
+
+type AccountSummary = {
+  company: string;
+  name: string;
+  email: string;
+};
+
+const initialAccount: AccountSummary = {
+  company: "Empresa não identificada",
+  name: "Carregando conta...",
+  email: "",
+};
+
+function Brand() {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/20">
+        <Sparkles className="size-5" />
+      </div>
+      <div>
+        <p className="font-semibold tracking-tight text-foreground">DJ PAY</p>
+        <p className="text-xs text-muted-foreground">Gestão financeira PJ</p>
+      </div>
+    </div>
+  );
+}
+
+function AccountCard({ account }: { account: AccountSummary }) {
+  const initials = account.name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card/75 p-3 shadow-sm shadow-black/5">
+      <p className="truncate text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        {account.company}
+      </p>
+      <div className="mt-3 flex items-center gap-3">
+        <div className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+          {initials || <User className="size-4" />}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-foreground">{account.name}</p>
+          {account.email && <p className="truncate text-xs text-muted-foreground">{account.email}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Navigation({
+  activeItem,
+  onSelect,
+}: {
+  activeItem: string;
+  onSelect: (item: string) => void;
+}) {
+  return (
+    <nav aria-label="Navegação principal" className="space-y-1">
+      {navigationItems.map((item) => {
+        const Icon = item.icon;
+        const active = activeItem === item.label;
+
+        return (
+          <button
+            key={item.label}
+            type="button"
+            onClick={() => onSelect(item.label)}
+            aria-current={active ? "page" : undefined}
+            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-all duration-200 ${
+              active
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+            }`}
+          >
+            <Icon className="size-4 shrink-0" />
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [activeItem, setActiveItem] = useState("Dashboard");
+  const [account, setAccount] = useState<AccountSummary>(initialAccount);
+
+  useEffect(() => {
+    let mounted = true;
+
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!mounted || !data.user) return;
+
+      const metadata = data.user.user_metadata ?? {};
+      const name =
+        typeof metadata.full_name === "string"
+          ? metadata.full_name
+          : typeof metadata.name === "string"
+            ? metadata.name
+            : data.user.email?.split("@")[0] ?? "Usuário DJ PAY";
+      const company =
+        typeof metadata.company_name === "string"
+          ? metadata.company_name
+          : typeof metadata.company === "string"
+            ? metadata.company
+            : "Sua empresa";
+
+      setAccount({ company, name, email: data.user.email ?? "" });
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleNavigation = (item: string) => {
+    setActiveItem(item);
+    setMobileOpen(false);
+  };
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <div className="min-h-screen bg-background lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
+        <aside className="sticky top-0 hidden h-screen flex-col border-r border-border/60 bg-sidebar/80 p-4 backdrop-blur-md lg:flex">
+          <Brand />
+          <div className="mt-10">
+            <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Visão geral
+            </p>
+            <Navigation activeItem={activeItem} onSelect={handleNavigation} />
+          </div>
+          <div className="mt-auto pt-6">
+            <AccountCard account={account} />
+          </div>
+        </aside>
+
+        <div className="min-w-0">
+          <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border/60 bg-background/80 px-4 backdrop-blur-md lg:hidden">
+            <Brand />
+            <button
+              type="button"
+              aria-label="Abrir menu"
+              onClick={() => setMobileOpen(true)}
+              className="grid size-10 place-items-center rounded-xl border border-border/60 bg-card text-foreground shadow-sm transition-all duration-200 hover:scale-[1.02] hover:bg-muted active:scale-[0.98]"
+            >
+              <Menu className="size-5" />
+            </button>
+          </header>
+
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetContent side="left" className="flex w-[18rem] flex-col border-border/60 bg-sidebar p-4 sm:w-[20rem]">
+              <div className="flex items-center justify-between pr-8">
+                <Brand />
+                <SheetClose asChild>
+                  <button
+                    type="button"
+                    aria-label="Fechar menu"
+                    className="grid size-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </SheetClose>
+              </div>
+              <SheetTitle className="sr-only">Menu principal do DJ PAY</SheetTitle>
+              <div className="mt-10">
+                <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Visão geral
+                </p>
+                <Navigation activeItem={activeItem} onSelect={handleNavigation} />
+              </div>
+              <div className="mt-auto pt-6">
+                <AccountCard account={account} />
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+        </div>
+      </div>
     </QueryClientProvider>
   );
 }

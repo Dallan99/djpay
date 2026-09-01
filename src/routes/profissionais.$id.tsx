@@ -22,7 +22,11 @@ type Professional = {
   company_id: string;
   nome_completo: string;
   razao_social: string | null;
+  nome_fantasia: string | null;
   cpf_cnpj: string | null;
+  inscricao_municipal: string | null;
+  cidade: string | null;
+  estado: string | null;
   email: string | null;
   telefone: string | null;
   cargo: string | null;
@@ -97,7 +101,7 @@ function ProfessionalDetailPage() {
       const { data, error } = await supabase
         .from("contractors")
         .select(
-          "id, company_id, nome_completo, razao_social, cpf_cnpj, email, telefone, cargo, area, gestor, data_inicio, status, observacoes",
+          "id, company_id, nome_completo, razao_social, nome_fantasia, cpf_cnpj, inscricao_municipal, cidade, estado, email, telefone, cargo, area, gestor, data_inicio, status, observacoes",
         )
         .eq("id", id)
         .eq("company_id", companyId)
@@ -216,8 +220,12 @@ function ProfessionalDetailPage() {
             <DetailItem label="Cargo" value={professional.cargo} />
             <DetailItem label="Área" value={professional.area} />
             <DetailItem label="Gestor" value={professional.gestor} />
-            <DetailItem label="CPF ou CNPJ" value={professional.cpf_cnpj} />
+            <DetailItem label="CNPJ do prestador" value={professional.cpf_cnpj} />
             <DetailItem label="Razão social" value={professional.razao_social} />
+            <DetailItem label="Nome fantasia" value={professional.nome_fantasia} />
+            <DetailItem label="Inscrição municipal" value={professional.inscricao_municipal} />
+            <DetailItem label="Cidade" value={professional.cidade} />
+            <DetailItem label="Estado" value={professional.estado} />
             <DetailItem label="Data de início" value={formatDate(professional.data_inicio)} />
           </div>
         </section>

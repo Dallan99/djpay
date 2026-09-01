@@ -412,7 +412,12 @@ type Professional = {
   id: string;
   company_id: string;
   nome_completo: string;
+  razao_social: string | null;
+  nome_fantasia: string | null;
   cpf_cnpj: string | null;
+  inscricao_municipal: string | null;
+  cidade: string | null;
+  estado: string | null;
   email: string | null;
   telefone: string | null;
   cargo: string | null;
@@ -424,7 +429,12 @@ type Professional = {
 
 type ProfessionalForm = {
   nome_completo: string;
+  razao_social: string;
+  nome_fantasia: string;
   cpf_cnpj: string;
+  inscricao_municipal: string;
+  cidade: string;
+  estado: string;
   email: string;
   telefone: string;
   cargo: string;
@@ -436,7 +446,12 @@ type ProfessionalForm = {
 
 const initialProfessionalForm: ProfessionalForm = {
   nome_completo: "",
+  razao_social: "",
+  nome_fantasia: "",
   cpf_cnpj: "",
+  inscricao_municipal: "",
+  cidade: "",
+  estado: "",
   email: "",
   telefone: "",
   cargo: "",
@@ -575,7 +590,12 @@ function ProfessionalsPage() {
       .insert({
         company_id: authenticatedCompanyId,
         nome_completo: formData.nome_completo.trim(),
+        razao_social: formData.razao_social.trim() || null,
+        nome_fantasia: formData.nome_fantasia.trim() || null,
         cpf_cnpj: formData.cpf_cnpj.trim() || null,
+        inscricao_municipal: formData.inscricao_municipal.trim() || null,
+        cidade: formData.cidade.trim() || null,
+        estado: formData.estado.trim().toUpperCase() || null,
         email: formData.email.trim() || null,
         telefone: formData.telefone.trim() || null,
         cargo: formData.cargo.trim() || null,
@@ -584,7 +604,7 @@ function ProfessionalsPage() {
         data_inicio: formData.data_inicio || null,
         status: formData.status,
       })
-      .select("id, company_id, nome_completo, cpf_cnpj, email, telefone, cargo, area, gestor, data_inicio, status")
+      .select("id, company_id, nome_completo, razao_social, nome_fantasia, cpf_cnpj, inscricao_municipal, cidade, estado, email, telefone, cargo, area, gestor, data_inicio, status")
       .single();
 
     setIsSaving(false);
@@ -766,8 +786,8 @@ function ProfessionalsPage() {
             </div>
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="professional-cpf">CPF ou CNPJ</Label>
-                <Input id="professional-cpf" value={formData.cpf_cnpj} onChange={(event) => updateFormField("cpf_cnpj", event.target.value)} placeholder="000.000.000-00" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+                <Label htmlFor="professional-cnpj">CNPJ do prestador</Label>
+                <Input id="professional-cnpj" value={formData.cpf_cnpj} onChange={(event) => updateFormField("cpf_cnpj", event.target.value)} placeholder="00.000.000/0000-00" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="professional-status">Status</Label>
@@ -775,6 +795,36 @@ function ProfessionalsPage() {
                   <SelectTrigger id="professional-status" className="h-10 rounded-xl focus:ring-2 focus:ring-primary/25"><SelectValue /></SelectTrigger>
                   <SelectContent>{STATUS_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 sm:p-5">
+              <div className="mb-4">
+                <p className="font-semibold text-foreground">Empresa do prestador PJ</p>
+                <p className="mt-1 text-sm text-muted-foreground">Estes dados pertencem ao profissional e não à empresa contratante.</p>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="professional-razao-social">Razão social</Label>
+                  <Input id="professional-razao-social" value={formData.razao_social} onChange={(event) => updateFormField("razao_social", event.target.value)} placeholder="Ex.: Oliveira Serviços Ltda." className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="professional-nome-fantasia">Nome fantasia</Label>
+                  <Input id="professional-nome-fantasia" value={formData.nome_fantasia} onChange={(event) => updateFormField("nome_fantasia", event.target.value)} placeholder="Ex.: Oliveira Consultoria" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="professional-inscricao-municipal">Inscrição municipal</Label>
+                  <Input id="professional-inscricao-municipal" value={formData.inscricao_municipal} onChange={(event) => updateFormField("inscricao_municipal", event.target.value)} placeholder="Ex.: 12345678" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+                </div>
+                <div className="grid grid-cols-[minmax(0,1fr)_5rem] gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="professional-city">Cidade</Label>
+                    <Input id="professional-city" value={formData.cidade} onChange={(event) => updateFormField("cidade", event.target.value)} placeholder="Ex.: São Paulo" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="professional-state">UF</Label>
+                    <Input id="professional-state" value={formData.estado} onChange={(event) => updateFormField("estado", event.target.value.toUpperCase().slice(0, 2))} placeholder="SP" maxLength={2} className="h-10 rounded-xl uppercase focus-visible:ring-2 focus-visible:ring-primary/25" />
+                  </div>
+                </div>
               </div>
             </div>
             <div className="grid gap-5 sm:grid-cols-2">

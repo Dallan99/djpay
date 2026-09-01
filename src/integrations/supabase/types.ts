@@ -21,7 +21,11 @@ export type Database = {
           user_id: string | null
           nome_completo: string
           razao_social: string | null
+          nome_fantasia: string | null
           cpf_cnpj: string | null
+          inscricao_municipal: string | null
+          cidade: string | null
+          estado: string | null
           email: string | null
           telefone: string | null
           cargo: string | null
@@ -39,7 +43,11 @@ export type Database = {
           user_id?: string | null
           nome_completo: string
           razao_social?: string | null
+          nome_fantasia?: string | null
           cpf_cnpj?: string | null
+          inscricao_municipal?: string | null
+          cidade?: string | null
+          estado?: string | null
           email?: string | null
           telefone?: string | null
           cargo?: string | null
@@ -56,7 +64,11 @@ export type Database = {
           user_id?: string | null
           nome_completo?: string
           razao_social?: string | null
+          nome_fantasia?: string | null
           cpf_cnpj?: string | null
+          inscricao_municipal?: string | null
+          cidade?: string | null
+          estado?: string | null
           email?: string | null
           telefone?: string | null
           cargo?: string | null

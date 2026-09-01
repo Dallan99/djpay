@@ -39,6 +39,12 @@ type Professional = {
   area: string | null;
   gestor: string | null;
   data_inicio: string | null;
+  valor_mensal: number | null;
+  data_vencimento: string | null;
+  data_encerramento: string | null;
+  ajuda_custo: number | null;
+  contrato_observacoes: string | null;
+  contrato_status: string | null;
   status: string;
   observacoes: string | null;
 };
@@ -63,7 +69,16 @@ function formatDate(date: string | null) {
   return new Date(`${date}T00:00:00`).toLocaleDateString("pt-BR");
 }
 
-function DetailItem({ label, value }: { label: string; value: string | null }) {
+function formatCurrency(value: number | null) {
+  if (value === null) return "Não informado";
+
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
+}
+
+function DetailItem({ label, value }: { label: string | number | null }) {
   return (
     <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -107,7 +122,7 @@ function ProfessionalDetailPage() {
       const { data, error } = await supabase
         .from("contractors")
         .select(
-          "id, company_id, nome_completo, razao_social, nome_fantasia, cpf_cnpj, inscricao_municipal, banco, agencia, conta, tipo_conta, chave_pix, tipo_chave_pix, cidade, estado, email, telefone, cargo, area, gestor, data_inicio, status, observacoes",
+          "id, company_id, nome_completo, razao_social, nome_fantasia, cpf_cnpj, inscricao_municipal, banco, agencia, conta, tipo_conta, chave_pix, tipo_chave_pix, cidade, estado, email, telefone, cargo, area, gestor, data_inicio, valor_mensal, data_vencimento, data_encerramento, ajuda_custo, contrato_observacoes, contrato_status, status, observacoes",
         )
         .eq("id", id)
         .eq("company_id", companyId)
@@ -256,6 +271,39 @@ function ProfessionalDetailPage() {
               <DetailItem label="Tipo de conta" value={professional.tipo_conta} />
               <DetailItem label="Chave PIX" value={professional.chave_pix} />
               <DetailItem label="Tipo de chave PIX" value={professional.tipo_chave_pix} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6 border-border/60 bg-card/75 shadow-md shadow-black/5">
+          <CardContent className="p-6 sm:p-7">
+            <div className="flex items-center gap-3">
+              <div className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
+                <CalendarDays className="size-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
+                  Contrato financeiro
+                </h2>
+                <p className="text-sm text-muted-foreground">Condições financeiras individuais deste profissional PJ.</p>
+              </div>
+              {professional.contrato_status && (
+                <Badge variant="outline" className="ml-auto rounded-full border-primary/20 bg-primary/5 px-3 py-1 capitalize text-primary">
+                  {professional.contrato_status.replaceAll("_", " ")}
+                </Badge>
+              )}
+            </div>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <DetailItem label="Valor mensal" value={formatCurrency(professional.valor_mensal)} />
+              <DetailItem label="Ajuda de custo" value={formatCurrency(professional.ajuda_custo)} />
+              <DetailItem label="Data de vencimento" value={formatDate(professional.data_vencimento)} />
+              <DetailItem label="Data de início" value={formatDate(professional.data_inicio)} />
+              <DetailItem label="Data de encerramento" value={formatDate(professional.data_encerramento)} />
+              <DetailItem label="Status do contrato" value={professional.contrato_status?.replaceAll("_", " ") ?? null} />
+            </div>
+            <div className="mt-4 rounded-xl border border-border/60 bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Observações do contrato</p>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground">{professional.contrato_observacoes || "Nenhuma observação contratual cadastrada."}</p>
             </div>
           </CardContent>
         </Card>

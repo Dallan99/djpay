@@ -38,6 +38,12 @@ export type Database = {
           area: string | null
           gestor: string | null
           data_inicio: string | null
+          valor_mensal: number | null
+          data_vencimento: string | null
+          data_encerramento: string | null
+          ajuda_custo: number | null
+          contrato_observacoes: string | null
+          contrato_status: string | null
           status: string
           observacoes: string | null
           created_at: string | null

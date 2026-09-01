@@ -430,6 +430,12 @@ type Professional = {
   area: string | null;
   gestor: string | null;
   data_inicio: string | null;
+  valor_mensal: number | null;
+  data_vencimento: string | null;
+  data_encerramento: string | null;
+  ajuda_custo: number | null;
+  contrato_observacoes: string | null;
+  contrato_status: string | null;
   status: string;
 };
 
@@ -453,6 +459,12 @@ type ProfessionalForm = {
   area: string;
   gestor: string;
   data_inicio: string;
+  valor_mensal: string;
+  data_vencimento: string;
+  data_encerramento: string;
+  ajuda_custo: string;
+  contrato_observacoes: string;
+  contrato_status: string;
   status: string;
 };
 
@@ -476,6 +488,12 @@ const initialProfessionalForm: ProfessionalForm = {
   area: "",
   gestor: "",
   data_inicio: "",
+  valor_mensal: "",
+  data_vencimento: "",
+  data_encerramento: "",
+  ajuda_custo: "",
+  contrato_observacoes: "",
+  contrato_status: "ativo",
   status: "active",
 };
 
@@ -626,9 +644,15 @@ function ProfessionalsPage() {
         area: formData.area.trim() || null,
         gestor: formData.gestor.trim() || null,
         data_inicio: formData.data_inicio || null,
+        valor_mensal: formData.valor_mensal ? Number(formData.valor_mensal) : null,
+        data_vencimento: formData.data_vencimento || null,
+        data_encerramento: formData.data_encerramento || null,
+        ajuda_custo: formData.ajuda_custo ? Number(formData.ajuda_custo) : null,
+        contrato_observacoes: formData.contrato_observacoes.trim() || null,
+        contrato_status: formData.contrato_status || null,
         status: formData.status,
       })
-      .select("id, company_id, nome_completo, razao_social, nome_fantasia, cpf_cnpj, inscricao_municipal, banco, agencia, conta, tipo_conta, chave_pix, tipo_chave_pix, cidade, estado, email, telefone, cargo, area, gestor, data_inicio, status")
+      .select("id, company_id, nome_completo, razao_social, nome_fantasia, cpf_cnpj, inscricao_municipal, banco, agencia, conta, tipo_conta, chave_pix, tipo_chave_pix, cidade, estado, email, telefone, cargo, area, gestor, data_inicio, valor_mensal, data_vencimento, data_encerramento, ajuda_custo, contrato_observacoes, contrato_status, status")
       .single();
 
     setIsSaving(false);
@@ -916,6 +940,46 @@ function ProfessionalsPage() {
               <div className="space-y-2">
                 <Label htmlFor="professional-area">Área</Label>
                 <Input id="professional-area" value={formData.area} onChange={(event) => updateFormField("area", event.target.value)} placeholder="Ex.: Financeiro" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+              </div>
+            </div>
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:p-5">
+              <div className="mb-4">
+                <p className="font-semibold text-foreground">Contrato financeiro</p>
+                <p className="mt-1 text-sm text-muted-foreground">Defina as condições individuais acordadas com este profissional PJ.</p>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="professional-monthly-value">Valor mensal</Label>
+                  <Input id="professional-monthly-value" type="number" min="0" step="0.01" value={formData.valor_mensal} onChange={(event) => updateFormField("valor_mensal", event.target.value)} placeholder="Ex.: 8500,00" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="professional-cost-aid">Ajuda de custo mensal</Label>
+                  <Input id="professional-cost-aid" type="number" min="0" step="0.01" value={formData.ajuda_custo} onChange={(event) => updateFormField("ajuda_custo", event.target.value)} placeholder="Ex.: 500,00" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="professional-due-date">Data de vencimento</Label>
+                  <Input id="professional-due-date" type="date" value={formData.data_vencimento} onChange={(event) => updateFormField("data_vencimento", event.target.value)} className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="professional-contract-end-date">Data de encerramento</Label>
+                  <Input id="professional-contract-end-date" type="date" value={formData.data_encerramento} onChange={(event) => updateFormField("data_encerramento", event.target.value)} className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="professional-contract-status">Status do contrato</Label>
+                  <Select value={formData.contrato_status} onValueChange={(value) => updateFormField("contrato_status", value)}>
+                    <SelectTrigger id="professional-contract-status" className="h-10 rounded-xl focus:ring-2 focus:ring-primary/25"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ativo">Ativo</SelectItem>
+                      <SelectItem value="encerrado">Encerrado</SelectItem>
+                      <SelectItem value="suspenso">Suspenso</SelectItem>
+                      <SelectItem value="em_negociacao">Em negociação</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="professional-contract-notes">Observações do contrato</Label>
+                  <textarea id="professional-contract-notes" value={formData.contrato_observacoes} onChange={(event) => updateFormField("contrato_observacoes", event.target.value)} placeholder="Registre condições, reajustes ou combinações específicas." className="min-h-24 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-all duration-200 placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/25" />
+                </div>
               </div>
             </div>
             <div className="grid gap-5 sm:grid-cols-2">

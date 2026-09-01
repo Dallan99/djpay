@@ -25,6 +25,12 @@ type Professional = {
   nome_fantasia: string | null;
   cpf_cnpj: string | null;
   inscricao_municipal: string | null;
+  banco: string | null;
+  agencia: string | null;
+  conta: string | null;
+  tipo_conta: string | null;
+  chave_pix: string | null;
+  tipo_chave_pix: string | null;
   cidade: string | null;
   estado: string | null;
   email: string | null;
@@ -101,7 +107,7 @@ function ProfessionalDetailPage() {
       const { data, error } = await supabase
         .from("contractors")
         .select(
-          "id, company_id, nome_completo, razao_social, nome_fantasia, cpf_cnpj, inscricao_municipal, cidade, estado, email, telefone, cargo, area, gestor, data_inicio, status, observacoes",
+          "id, company_id, nome_completo, razao_social, nome_fantasia, cpf_cnpj, inscricao_municipal, banco, agencia, conta, tipo_conta, chave_pix, tipo_chave_pix, cidade, estado, email, telefone, cargo, area, gestor, data_inicio, status, observacoes",
         )
         .eq("id", id)
         .eq("company_id", companyId)
@@ -229,6 +235,30 @@ function ProfessionalDetailPage() {
             <DetailItem label="Data de início" value={formatDate(professional.data_inicio)} />
           </div>
         </section>
+
+        <Card className="mt-6 border-border/60 bg-card/75 shadow-md shadow-black/5">
+          <CardContent className="p-6 sm:p-7">
+            <div className="flex items-center gap-3">
+              <div className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
+                <User className="size-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
+                  Dados bancários
+                </h2>
+                <p className="text-sm text-muted-foreground">Informações de pagamento protegidas pelas permissões deste profissional.</p>
+              </div>
+            </div>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <DetailItem label="Banco" value={professional.banco} />
+              <DetailItem label="Agência" value={professional.agencia} />
+              <DetailItem label="Conta" value={professional.conta} />
+              <DetailItem label="Tipo de conta" value={professional.tipo_conta} />
+              <DetailItem label="Chave PIX" value={professional.chave_pix} />
+              <DetailItem label="Tipo de chave PIX" value={professional.tipo_chave_pix} />
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <Card className="border-border/60 bg-card/75 shadow-md shadow-black/5">

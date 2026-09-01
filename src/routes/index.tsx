@@ -416,6 +416,12 @@ type Professional = {
   nome_fantasia: string | null;
   cpf_cnpj: string | null;
   inscricao_municipal: string | null;
+  banco: string | null;
+  agencia: string | null;
+  conta: string | null;
+  tipo_conta: string | null;
+  chave_pix: string | null;
+  tipo_chave_pix: string | null;
   cidade: string | null;
   estado: string | null;
   email: string | null;
@@ -433,6 +439,12 @@ type ProfessionalForm = {
   nome_fantasia: string;
   cpf_cnpj: string;
   inscricao_municipal: string;
+  banco: string;
+  agencia: string;
+  conta: string;
+  tipo_conta: string;
+  chave_pix: string;
+  tipo_chave_pix: string;
   cidade: string;
   estado: string;
   email: string;
@@ -450,6 +462,12 @@ const initialProfessionalForm: ProfessionalForm = {
   nome_fantasia: "",
   cpf_cnpj: "",
   inscricao_municipal: "",
+  banco: "",
+  agencia: "",
+  conta: "",
+  tipo_conta: "",
+  chave_pix: "",
+  tipo_chave_pix: "",
   cidade: "",
   estado: "",
   email: "",
@@ -509,7 +527,7 @@ function ProfessionalsPage() {
 
       const { data, error } = await supabase
         .from("contractors")
-        .select("id, company_id, nome_completo, cpf_cnpj, email, telefone, cargo, area, gestor, data_inicio, status")
+        .select("id, company_id, nome_completo, razao_social, nome_fantasia, cpf_cnpj, inscricao_municipal, banco, agencia, conta, tipo_conta, chave_pix, tipo_chave_pix, cidade, estado, email, telefone, cargo, area, gestor, data_inicio, status")
         .eq("company_id", companyId)
         .order("nome_completo", { ascending: true });
 
@@ -594,6 +612,12 @@ function ProfessionalsPage() {
         nome_fantasia: formData.nome_fantasia.trim() || null,
         cpf_cnpj: formData.cpf_cnpj.trim() || null,
         inscricao_municipal: formData.inscricao_municipal.trim() || null,
+        banco: formData.banco.trim() || null,
+        agencia: formData.agencia.trim() || null,
+        conta: formData.conta.trim() || null,
+        tipo_conta: formData.tipo_conta || null,
+        chave_pix: formData.chave_pix.trim() || null,
+        tipo_chave_pix: formData.tipo_chave_pix || null,
         cidade: formData.cidade.trim() || null,
         estado: formData.estado.trim().toUpperCase() || null,
         email: formData.email.trim() || null,
@@ -604,7 +628,7 @@ function ProfessionalsPage() {
         data_inicio: formData.data_inicio || null,
         status: formData.status,
       })
-      .select("id, company_id, nome_completo, razao_social, nome_fantasia, cpf_cnpj, inscricao_municipal, cidade, estado, email, telefone, cargo, area, gestor, data_inicio, status")
+      .select("id, company_id, nome_completo, razao_social, nome_fantasia, cpf_cnpj, inscricao_municipal, banco, agencia, conta, tipo_conta, chave_pix, tipo_chave_pix, cidade, estado, email, telefone, cargo, area, gestor, data_inicio, status")
       .single();
 
     setIsSaving(false);
@@ -824,6 +848,53 @@ function ProfessionalsPage() {
                     <Label htmlFor="professional-state">UF</Label>
                     <Input id="professional-state" value={formData.estado} onChange={(event) => updateFormField("estado", event.target.value.toUpperCase().slice(0, 2))} placeholder="SP" maxLength={2} className="h-10 rounded-xl uppercase focus-visible:ring-2 focus-visible:ring-primary/25" />
                   </div>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-primary/5 p-4 sm:p-5">
+              <div className="mb-4">
+                <p className="font-semibold text-foreground">Dados bancários</p>
+                <p className="mt-1 text-sm text-muted-foreground">Informe os dados para pagamento do profissional. O acesso segue as permissões protegidas do cadastro.</p>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="professional-bank">Banco</Label>
+                  <Input id="professional-bank" value={formData.banco} onChange={(event) => updateFormField("banco", event.target.value)} placeholder="Ex.: Banco do Brasil" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="professional-agency">Agência</Label>
+                  <Input id="professional-agency" value={formData.agencia} onChange={(event) => updateFormField("agencia", event.target.value)} placeholder="Ex.: 1234-5" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="professional-account">Conta</Label>
+                  <Input id="professional-account" value={formData.conta} onChange={(event) => updateFormField("conta", event.target.value)} placeholder="Ex.: 12345-6" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="professional-account-type">Tipo de conta</Label>
+                  <Select value={formData.tipo_conta} onValueChange={(value) => updateFormField("tipo_conta", value)}>
+                    <SelectTrigger id="professional-account-type" className="h-10 rounded-xl focus:ring-2 focus:ring-primary/25"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="corrente">Conta corrente</SelectItem>
+                      <SelectItem value="poupanca">Conta poupança</SelectItem>
+                      <SelectItem value="pagamento">Conta de pagamento</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="professional-pix-key">Chave PIX</Label>
+                  <Input id="professional-pix-key" value={formData.chave_pix} onChange={(event) => updateFormField("chave_pix", event.target.value)} placeholder="CPF, e-mail, telefone ou chave aleatória" className="h-10 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/25" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="professional-pix-key-type">Tipo de chave PIX</Label>
+                  <Select value={formData.tipo_chave_pix} onValueChange={(value) => updateFormField("tipo_chave_pix", value)}>
+                    <SelectTrigger id="professional-pix-key-type" className="h-10 rounded-xl focus:ring-2 focus:ring-primary/25"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cpf_cnpj">CPF ou CNPJ</SelectItem>
+                      <SelectItem value="email">E-mail</SelectItem>
+                      <SelectItem value="telefone">Telefone</SelectItem>
+                      <SelectItem value="aleatoria">Chave aleatória</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>

@@ -24,6 +24,12 @@ export type Database = {
           nome_fantasia: string | null
           cpf_cnpj: string | null
           inscricao_municipal: string | null
+          banco: string | null
+          agencia: string | null
+          conta: string | null
+          tipo_conta: string | null
+          chave_pix: string | null
+          tipo_chave_pix: string | null
           cidade: string | null
           estado: string | null
           email: string | null

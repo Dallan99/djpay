@@ -6,11 +6,28 @@ import {
   CalendarDays,
   Mail,
   Phone,
+  Plus,
   User,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/profissionais/$id")({
@@ -47,6 +64,62 @@ type Professional = {
   contrato_status: string | null;
   status: string;
   observacoes: string | null;
+};
+
+type ContractBenefit = {
+  id: string;
+  tipo: string;
+  valor: number;
+  periodicidade: string;
+  requer_nota_fiscal: boolean;
+  mes_pagamento: number | null;
+  data_pagamento: string | null;
+  observacoes: string | null;
+};
+
+type BenefitForm = {
+  tipo: string;
+  valor: string;
+  periodicidade: string;
+  requer_nota_fiscal: string;
+  mes_pagamento: string;
+  data_pagamento: string;
+  observacoes: string;
+};
+
+const BENEFIT_TYPES = [
+  { value: "ajuda_custo", label: "Ajuda de custo" },
+  { value: "decima_terceira_nota", label: "13ª nota" },
+  { value: "ferias_remuneradas", label: "Férias remuneradas" },
+  { value: "bonus", label: "Bônus" },
+  { value: "plr", label: "PLR" },
+  { value: "comissao", label: "Comissão" },
+  { value: "premio", label: "Prêmio" },
+  { value: "outros", label: "Outros" },
+] as const;
+
+const PERIODICITY_LABELS: Record<string, string> = {
+  mensal: "Mensal",
+  trimestral: "Trimestral",
+  semestral: "Semestral",
+  anual: "Anual",
+  unico: "Pagamento único",
+  personalizado: "Personalizado",
+};
+
+const MONTHS = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+const initialBenefitForm: BenefitForm = {
+  tipo: "ajuda_custo",
+  valor: "",
+  periodicidade: "mensal",
+  requer_nota_fiscal: "sim",
+  mes_pagamento: "",
+  data_pagamento: "",
+  observacoes: "",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -96,6 +169,12 @@ function ProfessionalDetailPage() {
   const [professional, setProfessional] = useState<Professional | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [benefits, setBenefits] = useState<ContractBenefit[]>([]);
+  const [isBenefitsLoading, setIsBenefitsLoading] = useState(true);
+  const [isBenefitDialogOpen, setIsBenefitDialogOpen] = useState(false);
+  const [isSavingBenefit, setIsSavingBenefit] = useState(false);
+  const [benefitError, setBenefitError] = useState("");
+  const [benefitForm, setBenefitForm] = useState<BenefitForm>(initialBenefitForm);
 
   useEffect(() => {
     let active = true;
@@ -138,6 +217,17 @@ function ProfessionalDetailPage() {
         setErrorMessage("Profissional não encontrado ou indisponível para sua empresa.");
       } else {
         setProfessional(data);
+
+        const { data: benefitsData, error: benefitsError } = await (supabase as any)
+          .from("contract_benefits")
+          .select("id, tipo, valor, periodicidade, requer_nota_fiscal, mes_pagamento, data_pagamento, observacoes")
+          .eq("contractor_id", id)
+          .eq("company_id", companyId)
+          .order("created_at", { ascending: true });
+
+        if (!active) return;
+        setBenefits(benefitsError ? [] : (benefitsData ?? []));
+        setIsBenefitsLoading(false);
       }
 
       setIsLoading(false);
@@ -149,6 +239,56 @@ function ProfessionalDetailPage() {
       active = false;
     };
   }, [id]);
+
+  const updateBenefitField = <Key extends keyof BenefitForm>(key: Key, value: BenefitForm[Key]) => {
+    setBenefitForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const handleCreateBenefit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setBenefitError("");
+
+    if (!professional) return;
+    const value = Number(benefitForm.valor);
+    if (!benefitForm.valor || Number.isNaN(value) || value < 0) {
+      setBenefitError("Informe um valor válido para o benefício.");
+      return;
+    }
+
+    setIsSavingBenefit(true);
+    const { error } = await (supabase as any)
+      .from("contract_benefits")
+      .insert({
+        company_id: professional.company_id,
+        contractor_id: professional.id,
+        tipo: benefitForm.tipo,
+        valor: value,
+        periodicidade: benefitForm.periodicidade,
+        requer_nota_fiscal: benefitForm.requer_nota_fiscal === "sim",
+        mes_pagamento: benefitForm.mes_pagamento ? Number(benefitForm.mes_pagamento) : null,
+        data_pagamento: benefitForm.data_pagamento || null,
+        observacoes: benefitForm.observacoes.trim() || null,
+      })
+      .select("id, tipo, valor, periodicidade, requer_nota_fiscal, mes_pagamento, data_pagamento, observacoes")
+      .single();
+
+    setIsSavingBenefit(false);
+    if (error) {
+      setBenefitError("Não foi possível salvar o benefício. Verifique suas permissões e tente novamente.");
+      return;
+    }
+
+    const { data } = await (supabase as any)
+      .from("contract_benefits")
+      .select("id, tipo, valor, periodicidade, requer_nota_fiscal, mes_pagamento, data_pagamento, observacoes")
+      .eq("contractor_id", professional.id)
+      .eq("company_id", professional.company_id)
+      .order("created_at", { ascending: true });
+
+    setBenefits(data ?? []);
+    setBenefitForm(initialBenefitForm);
+    setIsBenefitDialogOpen(false);
+  };
 
   if (isLoading) {
     return (
@@ -308,6 +448,70 @@ function ProfessionalDetailPage() {
           </CardContent>
         </Card>
 
+        <Card className="mt-6 border-border/60 bg-card/75 shadow-md shadow-black/5">
+          <CardContent className="p-6 sm:p-7">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
+                  <CalendarDays className="size-5" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
+                    Benefícios financeiros
+                  </h2>
+                  <p className="text-sm text-muted-foreground">Condições adicionais configuradas para este contrato.</p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                onClick={() => {
+                  setBenefitError("");
+                  setIsBenefitDialogOpen(true);
+                }}
+                className="rounded-xl shadow-md shadow-primary/20 transition-all duration-200 hover:scale-[1.02] hover:shadow-primary/25 active:scale-[0.98]"
+              >
+                <Plus className="size-4" />
+                Adicionar benefício
+              </Button>
+            </div>
+
+            {isBenefitsLoading ? (
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((item) => <div key={item} className="h-36 animate-pulse rounded-xl bg-muted/60" />)}
+              </div>
+            ) : benefits.length > 0 ? (
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {benefits.map((benefit) => (
+                  <article key={benefit.id} className="rounded-xl border border-border/60 bg-muted/20 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-foreground">
+                          {BENEFIT_TYPES.find((type) => type.value === benefit.tipo)?.label ?? "Outros"}
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">{PERIODICITY_LABELS[benefit.periodicidade] ?? benefit.periodicidade}</p>
+                      </div>
+                      <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 text-primary">
+                        {formatCurrency(benefit.valor)}
+                      </Badge>
+                    </div>
+                    <div className="mt-4 space-y-1 text-xs text-muted-foreground">
+                      <p>{benefit.requer_nota_fiscal ? "Requer nota fiscal" : "Não requer nota fiscal"}</p>
+                      {benefit.data_pagamento && <p>Pagamento: {formatDate(benefit.data_pagamento)}</p>}
+                      {!benefit.data_pagamento && benefit.mes_pagamento && <p>Mês previsto: {MONTHS[benefit.mes_pagamento - 1]}</p>}
+                    </div>
+                    {benefit.observacoes && <p className="mt-3 border-t border-border/60 pt-3 text-sm leading-6 text-muted-foreground">{benefit.observacoes}</p>}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-6 rounded-xl border border-dashed border-border bg-muted/20 px-5 py-8 text-center">
+                <p className="font-medium text-foreground">Nenhum benefício adicional cadastrado</p>
+                <p className="mt-1 text-sm text-muted-foreground">Adicione ajuda de custo, 13ª nota, férias, bônus ou outras condições deste contrato.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <Card className="border-border/60 bg-card/75 shadow-md shadow-black/5">
             <CardContent className="p-6 sm:p-7">
@@ -361,6 +565,66 @@ function ProfessionalDetailPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={isBenefitDialogOpen} onOpenChange={setIsBenefitDialogOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto border-border/60 bg-background sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl" style={{ fontFamily: "var(--font-display)" }}>Adicionar benefício</DialogTitle>
+            <DialogDescription>Defina as condições financeiras adicionais deste contrato.</DialogDescription>
+          </DialogHeader>
+          <form className="space-y-5" onSubmit={handleCreateBenefit}>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="benefit-type">Tipo de benefício</Label>
+                <Select value={benefitForm.tipo} onValueChange={(value) => updateBenefitField("tipo", value)}>
+                  <SelectTrigger id="benefit-type" className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>{BENEFIT_TYPES.map((type) => <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="benefit-value">Valor</Label>
+                <Input id="benefit-value" type="number" min="0" step="0.01" required value={benefitForm.valor} onChange={(event) => updateBenefitField("valor", event.target.value)} placeholder="Ex.: 500,00" className="h-10 rounded-xl" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="benefit-periodicity">Periodicidade</Label>
+                <Select value={benefitForm.periodicidade} onValueChange={(value) => updateBenefitField("periodicidade", value)}>
+                  <SelectTrigger id="benefit-periodicity" className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mensal">Mensal</SelectItem><SelectItem value="trimestral">Trimestral</SelectItem><SelectItem value="semestral">Semestral</SelectItem><SelectItem value="anual">Anual</SelectItem><SelectItem value="unico">Pagamento único</SelectItem><SelectItem value="personalizado">Personalizado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="benefit-invoice">Necessita nota fiscal?</Label>
+                <Select value={benefitForm.requer_nota_fiscal} onValueChange={(value) => updateBenefitField("requer_nota_fiscal", value)}>
+                  <SelectTrigger id="benefit-invoice" className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="sim">Sim</SelectItem><SelectItem value="nao">Não</SelectItem></SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="benefit-month">Mês de pagamento</Label>
+                <Select value={benefitForm.mes_pagamento} onValueChange={(value) => updateBenefitField("mes_pagamento", value)}>
+                  <SelectTrigger id="benefit-month" className="h-10 rounded-xl"><SelectValue placeholder="Opcional" /></SelectTrigger>
+                  <SelectContent>{MONTHS.map((month, index) => <SelectItem key={month} value={String(index + 1)}>{month}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="benefit-date">Data de pagamento</Label>
+                <Input id="benefit-date" type="date" value={benefitForm.data_pagamento} onChange={(event) => updateBenefitField("data_pagamento", event.target.value)} className="h-10 rounded-xl" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="benefit-notes">Observações</Label>
+              <textarea id="benefit-notes" value={benefitForm.observacoes} onChange={(event) => updateBenefitField("observacoes", event.target.value)} placeholder="Registre condições ou regras específicas." className="min-h-24 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-all duration-200 placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/25" />
+            </div>
+            {benefitError && <div className="rounded-xl border border-destructive/25 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">{benefitError}</div>}
+            <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setIsBenefitDialogOpen(false)} disabled={isSavingBenefit} className="rounded-xl">Cancelar</Button>
+              <Button type="submit" disabled={isSavingBenefit} className="rounded-xl shadow-md shadow-primary/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">{isSavingBenefit ? "Salvando..." : "Salvar benefício"}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

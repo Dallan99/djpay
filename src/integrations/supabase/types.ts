@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      payments: {
+        Row: {
+          id: string
+          company_id: string
+          contractor_id: string
+          competencia: string | null
+          descricao: string | null
+          valor: number
+          vencimento: string | null
+          data_pagamento: string | null
+          status: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          contractor_id: string
+          competencia?: string | null
+          descricao?: string | null
+          valor: number
+          vencimento?: string | null
+          data_pagamento?: string | null
+          status?: string
+        }
+        Update: {
+          company_id?: string
+          contractor_id?: string
+          competencia?: string | null
+          descricao?: string | null
+          valor?: number
+          vencimento?: string | null
+          data_pagamento?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       contractors: {
         Row: {
           id: string

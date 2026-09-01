@@ -135,11 +135,11 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 const navigationItems = [
-  { label: "Dashboard", icon: Sparkles },
-  { label: "Profissionais", icon: User },
-  { label: "Pagamentos", icon: ShoppingCart },
-  { label: "Notas Fiscais", icon: FileText },
-  { label: "Configurações", icon: ShieldCheck },
+  { label: "Dashboard", icon: Sparkles, to: "/" },
+  { label: "Profissionais", icon: User, to: "/" },
+  { label: "Pagamentos", icon: ShoppingCart, to: "/pagamentos" },
+  { label: "Notas Fiscais", icon: FileText, to: "/" },
+  { label: "Configurações", icon: ShieldCheck, to: "/" },
 ] as const;
 
 type AccountSummary = {
@@ -207,9 +207,9 @@ function Navigation({
         const active = activeItem === item.label;
 
         return (
-          <button
+          <Link
             key={item.label}
-            type="button"
+            to={item.to}
             onClick={() => onSelect(item.label)}
             aria-current={active ? "page" : undefined}
             className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-all duration-200 ${
@@ -220,7 +220,7 @@ function Navigation({
           >
             <Icon className="size-4 shrink-0" />
             <span>{item.label}</span>
-          </button>
+          </Link>
         );
       })}
     </nav>

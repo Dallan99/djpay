@@ -14,7 +14,61 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      contractors: {
+        Row: {
+          id: string
+          company_id: string
+          user_id: string | null
+          nome_completo: string
+          razao_social: string | null
+          cpf_cnpj: string | null
+          email: string | null
+          telefone: string | null
+          cargo: string | null
+          area: string | null
+          gestor: string | null
+          data_inicio: string | null
+          status: string
+          observacoes: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          user_id?: string | null
+          nome_completo: string
+          razao_social?: string | null
+          cpf_cnpj?: string | null
+          email?: string | null
+          telefone?: string | null
+          cargo?: string | null
+          area?: string | null
+          gestor?: string | null
+          data_inicio?: string | null
+          status?: string
+          observacoes?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          user_id?: string | null
+          nome_completo?: string
+          razao_social?: string | null
+          cpf_cnpj?: string | null
+          email?: string | null
+          telefone?: string | null
+          cargo?: string | null
+          area?: string | null
+          gestor?: string | null
+          data_inicio?: string | null
+          status?: string
+          observacoes?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

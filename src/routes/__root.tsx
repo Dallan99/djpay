@@ -232,7 +232,7 @@ function Navigation({
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [activeItem, setActiveItem] = useState("Dashboard");
+  const [activeItem, setActiveItem] = useState("Profissionais");
   const [account, setAccount] = useState<AccountSummary>(initialAccount);
 
   useEffect(() => {

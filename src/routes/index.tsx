@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Check,
   ChevronRight,
   FileText,
+  Filter,
   Search,
   Upload,
   User,
@@ -35,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
 import {
   MESES,
   KIND_LABEL,
@@ -75,7 +77,7 @@ const KIND_STYLE: Record<InvoiceKind, string> = {
 };
 
 function Index() {
-  return <EmployeeDashboard />;
+  return <ProfessionalsPage />;
 }
 
 function LegacyPjPanel() {
@@ -390,6 +392,249 @@ type Employee = {
   photoUrl: string;
   documents: EmployeeDocument[];
 };
+
+const STATUS_OPTIONS = [
+  { value: "active", label: "Ativo" },
+  { value: "vacation", label: "Férias" },
+  { value: "leave", label: "Afastado" },
+  { value: "terminated", label: "Encerrado" },
+] as const;
+
+const STATUS_STYLE: Record<string, string> = {
+  active: "border-success/30 bg-success/10 text-success",
+  vacation: "border-warning/40 bg-warning/20 text-warning-foreground",
+  leave: "border-primary/20 bg-primary/10 text-primary",
+  terminated: "border-border bg-muted text-muted-foreground",
+};
+
+type Professional = {
+  id: string;
+  company_id: string;
+  nome_completo: string;
+  cpf_cnpj: string | null;
+  email: string | null;
+  telefone: string | null;
+  cargo: string | null;
+  area: string | null;
+  gestor: string | null;
+  data_inicio: string | null;
+  status: string;
+};
+
+function ProfessionalsPage() {
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [areaFilter, setAreaFilter] = useState("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    const loadProfessionals = async () => {
+      setIsLoading(true);
+      setErrorMessage("");
+
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) {
+        if (active) {
+          setProfessionals([]);
+          setErrorMessage("Não foi possível identificar sua sessão. Faça login novamente.");
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      const metadata = authData.user.user_metadata ?? {};
+      const companyId = typeof metadata.company_id === "string" ? metadata.company_id : "";
+
+      if (!companyId) {
+        if (active) {
+          setProfessionals([]);
+          setErrorMessage("Sua conta não possui uma empresa associada.");
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("contractors")
+        .select("id, company_id, nome_completo, cpf_cnpj, email, telefone, cargo, area, gestor, data_inicio, status")
+        .eq("company_id", companyId)
+        .order("nome_completo", { ascending: true });
+
+      if (!active) return;
+
+      if (error) {
+        setProfessionals([]);
+        setErrorMessage("Não foi possível carregar os profissionais da empresa.");
+      } else {
+        setProfessionals(data ?? []);
+      }
+      setIsLoading(false);
+    };
+
+    void loadProfessionals();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const areas = useMemo(
+    () => [...new Set(professionals.map((professional) => professional.area).filter(Boolean))] as string[],
+    [professionals],
+  );
+
+  const filteredProfessionals = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLocaleLowerCase("pt-BR");
+
+    return professionals.filter((professional) => {
+      const searchableFields = [
+        professional.nome_completo,
+        professional.cpf_cnpj,
+        professional.email,
+        professional.telefone,
+        professional.cargo,
+        professional.area,
+        professional.gestor,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("pt-BR");
+
+      return (
+        (!normalizedSearch || searchableFields.includes(normalizedSearch)) &&
+        (statusFilter === "all" || professional.status === statusFilter) &&
+        (areaFilter === "all" || professional.area === areaFilter)
+      );
+    });
+  }, [areaFilter, professionals, searchTerm, statusFilter]);
+
+  const getStatusLabel = (status: string) =>
+    STATUS_OPTIONS.find((option) => option.value === status)?.label ?? "Não informado";
+
+  return (
+    <main className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 font-sans">
+      <div className="mx-auto max-w-7xl px-5 py-10 sm:px-8 sm:py-14">
+        <div className="mb-10 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div className="max-w-2xl space-y-3">
+            <Badge variant="outline" className="w-fit rounded-full border-primary/20 bg-primary/5 px-3 py-1 text-primary">
+              Gestão de pessoas
+            </Badge>
+            <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl" style={{ fontFamily: "var(--font-display)" }}>
+              Profissionais
+            </h1>
+            <p className="text-base leading-7 text-muted-foreground">
+              Consulte os profissionais vinculados à sua empresa e acompanhe seus dados cadastrais em um só lugar.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-card/75 px-4 py-3 shadow-sm shadow-black/5">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Total cadastrado</p>
+            <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground tabular-nums" style={{ fontFamily: "var(--font-display)" }}>
+              {isLoading ? "—" : professionals.length}
+            </p>
+          </div>
+        </div>
+
+        <section className="overflow-hidden rounded-2xl border border-border/60 bg-card/75 shadow-lg shadow-black/5">
+          <div className="border-b border-border/60 bg-muted/20 p-5 sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
+                  <User className="size-5" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>Lista de profissionais</h2>
+                  <p className="text-sm text-muted-foreground">Os resultados exibidos pertencem exclusivamente à sua empresa.</p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {isLoading ? "Carregando..." : `${filteredProfessionals.length} ${filteredProfessionals.length === 1 ? "resultado" : "resultados"}`}
+              </p>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_11rem_11rem]">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Buscar por nome, CPF, e-mail, cargo, área ou gestor"
+                  className="h-10 rounded-xl pl-9 focus-visible:ring-2 focus-visible:ring-primary/25"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-10 rounded-xl focus:ring-2 focus:ring-primary/25">
+                  <Filter className="mr-2 size-4 text-muted-foreground" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os status</SelectItem>
+                  {STATUS_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={areaFilter} onValueChange={setAreaFilter}>
+                <SelectTrigger className="h-10 rounded-xl focus:ring-2 focus:ring-primary/25">
+                  <SelectValue placeholder="Área" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as áreas</SelectItem>
+                  {areas.map((area) => <SelectItem key={area} value={area}>{area}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {errorMessage ? (
+            <div className="m-6 flex items-start gap-3 rounded-2xl border border-destructive/25 bg-destructive/5 p-4 text-sm text-destructive">
+              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+              <p>{errorMessage}</p>
+            </div>
+          ) : isLoading ? (
+            <div className="space-y-3 p-6">
+              {[1, 2, 3].map((item) => <div key={item} className="h-20 animate-pulse rounded-xl bg-muted/60" />)}
+            </div>
+          ) : filteredProfessionals.length > 0 ? (
+            <div className="divide-y divide-border/60">
+              {filteredProfessionals.map((professional) => {
+                const initials = professional.nome_completo.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+                return (
+                  <article key={professional.id} className="flex flex-col gap-4 p-5 transition-all duration-300 hover:bg-muted/35 sm:flex-row sm:items-center">
+                    <div className="grid size-11 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-bold text-primary">{initials}</div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate font-semibold text-foreground">{professional.nome_completo}</h3>
+                      <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                        {[professional.cargo, professional.area].filter(Boolean).join(" · ") || "Cargo não informado"}
+                      </p>
+                    </div>
+                    <div className="grid gap-1 text-sm text-muted-foreground sm:min-w-52">
+                      <span className="truncate">{professional.email || "E-mail não informado"}</span>
+                      <span>{professional.telefone || "Telefone não informado"}</span>
+                    </div>
+                    <div className="flex items-center gap-3 sm:min-w-40 sm:justify-end">
+                      {professional.gestor && <span className="text-sm text-muted-foreground">Gestor: {professional.gestor}</span>}
+                      <Badge variant="outline" className={`rounded-full px-3 py-1 ${STATUS_STYLE[professional.status] ?? "border-border bg-muted text-muted-foreground"}`}>
+                        {getStatusLabel(professional.status)}
+                      </Badge>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+              <div className="grid size-12 place-items-center rounded-2xl bg-muted text-muted-foreground"><User className="size-5" /></div>
+              <p className="mt-4 font-semibold text-foreground">Nenhum profissional encontrado</p>
+              <p className="mt-1 max-w-sm text-sm leading-6 text-muted-foreground">Ajuste a busca ou os filtros para encontrar outro profissional.</p>
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
+  );
+}
 
 function EmployeeDashboard() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

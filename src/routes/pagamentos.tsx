@@ -34,6 +34,7 @@ type Payment = {
   contractor_id: string;
   competencia: string | null;
   descricao: string | null;
+  tipo_pagamento: string | null;
   valor: number;
   vencimento: string | null;
   data_pagamento: string | null;
@@ -59,6 +60,18 @@ const STATUS_STYLE: Record<string, string> = {
   cancelled: "border-border bg-muted text-muted-foreground",
 };
 
+const PAYMENT_TYPE_OPTIONS = [
+  { value: "monthly_fee", label: "Mensalidade" },
+  { value: "cost_allowance", label: "Ajuda de custo" },
+  { value: "thirteenth_invoice", label: "13ª nota" },
+  { value: "paid_vacation", label: "Férias remuneradas" },
+  { value: "bonus", label: "Bônus" },
+  { value: "profit_sharing", label: "PLR" },
+  { value: "commission", label: "Comissão" },
+  { value: "award", label: "Prêmio" },
+  { value: "other", label: "Outros" },
+] as const;
+
 const money = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -82,6 +95,7 @@ function PaymentsPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [professionalFilter, setProfessionalFilter] = useState("all");
   const [competenceFilter, setCompetenceFilter] = useState("all");
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
@@ -108,7 +122,7 @@ function PaymentsPage() {
       const [paymentsResult, contractorsResult] = await Promise.all([
         supabase
           .from("payments")
-          .select("id, company_id, contractor_id, competencia, descricao, valor, vencimento, data_pagamento, status")
+          .select("id, company_id, contractor_id, competencia, descricao, tipo_pagamento, valor, vencimento, data_pagamento, status")
           .eq("company_id", companyId)
           .order("vencimento", { ascending: true }),
         supabase
@@ -151,9 +165,10 @@ function PaymentsPage() {
     () => payments.filter((payment) =>
       (professionalFilter === "all" || payment.contractor_id === professionalFilter) &&
       (competenceFilter === "all" || payment.competencia === competenceFilter) &&
+      (paymentTypeFilter === "all" || payment.tipo_pagamento === paymentTypeFilter) &&
       (statusFilter === "all" || payment.status === statusFilter),
     ),
-    [competenceFilter, payments, professionalFilter, statusFilter],
+    [competenceFilter, paymentTypeFilter, payments, professionalFilter, statusFilter],
   );
 
   const totalPending = filteredPayments
@@ -165,6 +180,9 @@ function PaymentsPage() {
 
   const statusLabel = (status: string) =>
     STATUS_OPTIONS.find((option) => option.value === status)?.label ?? status;
+
+  const paymentTypeLabel = (type: string | null) =>
+    PAYMENT_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? "Outros";
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 font-sans">
@@ -204,7 +222,7 @@ function PaymentsPage() {
               </p>
             </div>
 
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <Select value={professionalFilter} onValueChange={setProfessionalFilter}>
                 <SelectTrigger className="h-10 rounded-xl focus:ring-2 focus:ring-primary/25"><Search className="mr-2 size-4 text-muted-foreground" /><SelectValue placeholder="Profissional" /></SelectTrigger>
                 <SelectContent>
@@ -217,6 +235,13 @@ function PaymentsPage() {
                 <SelectContent>
                   <SelectItem value="all">Todas as competências</SelectItem>
                   {competencies.map((competence) => <SelectItem key={competence} value={competence}>{formatCompetence(competence)}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
+                <SelectTrigger className="h-10 rounded-xl focus:ring-2 focus:ring-primary/25"><FileText className="mr-2 size-4 text-muted-foreground" /><SelectValue placeholder="Tipo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os tipos</SelectItem>
+                  {PAYMENT_TYPE_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -241,9 +266,11 @@ function PaymentsPage() {
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate font-semibold text-foreground">{contractorsById.get(payment.contractor_id) ?? "Profissional não encontrado"}</h3>
                     <p className="mt-0.5 truncate text-sm text-muted-foreground">{payment.descricao || "Pagamento sem descrição"}</p>
+                    <Badge variant="outline" className="mt-2 w-fit rounded-full border-primary/20 bg-primary/5 px-2.5 py-0.5 text-primary">{paymentTypeLabel(payment.tipo_pagamento)}</Badge>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3 lg:min-w-[26rem]">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:min-w-[23rem]">
                     <Detail label="Competência" value={formatCompetence(payment.competencia)} />
+                    <Detail label="Tipo" value={paymentTypeLabel(payment.tipo_pagamento)} />
                     <Detail label="Vencimento" value={formatDate(payment.vencimento)} />
                     <Detail label="Pagamento" value={formatDate(payment.data_pagamento)} />
                   </div>
@@ -271,6 +298,7 @@ function PaymentsPage() {
             <div className="grid gap-3 rounded-2xl border border-border/60 bg-muted/25 p-4 text-sm sm:grid-cols-2">
               <Detail label="Profissional" value={contractorsById.get(selectedPayment.contractor_id) ?? "Não encontrado"} />
               <Detail label="Competência" value={formatCompetence(selectedPayment.competencia)} />
+              <Detail label="Tipo de pagamento" value={paymentTypeLabel(selectedPayment.tipo_pagamento)} />
               <Detail label="Valor" value={money(Number(selectedPayment.valor))} strong />
               <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</p><Badge variant="outline" className={`mt-1 rounded-full px-2.5 py-0.5 ${STATUS_STYLE[selectedPayment.status] ?? "border-border bg-muted text-muted-foreground"}`}>{statusLabel(selectedPayment.status)}</Badge></div>
               <Detail label="Vencimento" value={formatDate(selectedPayment.vencimento)} />

@@ -21,6 +21,7 @@ export type Database = {
           contractor_id: string
           competencia: string | null
           descricao: string | null
+          tipo_pagamento: string | null
           valor: number
           vencimento: string | null
           data_pagamento: string | null
@@ -32,6 +33,7 @@ export type Database = {
           contractor_id: string
           competencia?: string | null
           descricao?: string | null
+          tipo_pagamento?: string | null
           valor: number
           vencimento?: string | null
           data_pagamento?: string | null
@@ -42,6 +44,7 @@ export type Database = {
           contractor_id?: string
           competencia?: string | null
           descricao?: string | null
+          tipo_pagamento?: string | null
           valor?: number
           vencimento?: string | null
           data_pagamento?: string | null

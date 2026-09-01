@@ -160,7 +160,7 @@ function Brand({ compact = false }: { compact?: boolean }) {
       <img
         src="/uploads/imagem-do-codex-1-de-set-de-2026-14-43-4-1.png"
         alt="DJ PAY — Pagamentos para PJ"
-        className={`block h-auto object-contain ${compact ? "w-28 sm:w-32" : "w-44 lg:w-52"}`}
+        className={`block h-auto object-contain mix-blend-screen ${compact ? "w-28 sm:w-32" : "w-44 lg:w-52"}`}
       />
     </div>
   );

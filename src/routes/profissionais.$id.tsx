@@ -88,14 +88,14 @@ type BenefitForm = {
 };
 
 const BENEFIT_TYPES = [
-  { value: "ajuda_custo", label: "Ajuda de custo" },
-  { value: "decima_terceira_nota", label: "13ª nota" },
-  { value: "ferias_remuneradas", label: "Férias remuneradas" },
+  { value: "cost_allowance", label: "Ajuda de custo" },
+  { value: "thirteenth_invoice", label: "13ª nota" },
+  { value: "paid_vacation", label: "Férias remuneradas" },
   { value: "bonus", label: "Bônus" },
-  { value: "plr", label: "PLR" },
-  { value: "comissao", label: "Comissão" },
-  { value: "premio", label: "Prêmio" },
-  { value: "outros", label: "Outros" },
+  { value: "profit_sharing", label: "PLR" },
+  { value: "commission", label: "Comissão" },
+  { value: "award", label: "Prêmio" },
+  { value: "other", label: "Outros" },
 ] as const;
 
 const PERIODICITY_LABELS: Record<string, string> = {
@@ -113,7 +113,7 @@ const MONTHS = [
 ];
 
 const initialBenefitForm: BenefitForm = {
-  tipo: "ajuda_custo",
+  tipo: "cost_allowance",
   valor: "",
   periodicidade: "mensal",
   requer_nota_fiscal: "sim",

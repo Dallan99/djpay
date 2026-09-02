@@ -516,8 +516,8 @@ function ProfessionalsPage() {
       setIsLoading(true);
       setErrorMessage("");
 
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError || !authData.user) {
+      const session = await loadSessionContext();
+      if (!session) {
         if (active) {
           setProfessionals([]);
           setErrorMessage("Não foi possível identificar sua sessão. Faça login novamente.");
@@ -526,8 +526,7 @@ function ProfessionalsPage() {
         return;
       }
 
-      const metadata = authData.user.user_metadata ?? {};
-      const companyId = typeof metadata.company_id === "string" ? metadata.company_id : "";
+      const companyId = session.companyId;
 
       if (!companyId) {
         if (active) {
@@ -544,9 +543,10 @@ function ProfessionalsPage() {
 
       const { data, error } = await supabase
         .from("contractors")
-        .select("id, company_id, nome_completo, razao_social, nome_fantasia, cpf_cnpj, inscricao_municipal, banco, agencia, conta, tipo_conta, chave_pix, tipo_chave_pix, cidade, estado, email, telefone, cargo, area, gestor, data_inicio, status")
+        .select("id, company_id, nome_completo, razao_social, nome_fantasia, cpf_cnpj, inscricao_municipal, banco, agencia, conta, tipo_conta, chave_pix, tipo_chave_pix, cidade, estado, email, telefone, cargo, area, gestor, data_inicio, valor_mensal, data_vencimento, data_encerramento, ajuda_custo, contrato_observacoes, contrato_status, status")
         .eq("company_id", companyId)
         .order("nome_completo", { ascending: true });
+
 
       if (!active) return;
 

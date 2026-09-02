@@ -300,7 +300,7 @@ function InvoicesPage() {
 
     const { error: uploadError } = await supabase.storage
       .from(INVOICE_BUCKET)
-      .upload(objectPath, file, { upsert: false, contentType: file.type || undefined });
+      .upload(objectPath, file, { upsert: false, contentType: file.type || "application/octet-stream" });
 
     if (uploadError) {
       // Sem linha órfã: remove o registro criado quando o upload falha.

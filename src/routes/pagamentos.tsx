@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { loadSessionContext } from "@/lib/session";
 
 export const Route = createFileRoute("/pagamentos")({
   head: () => ({
@@ -108,12 +109,10 @@ function PaymentsPage() {
       setIsLoading(true);
       setErrorMessage("");
 
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      const companyId = typeof authData.user?.user_metadata?.company_id === "string"
-        ? authData.user.user_metadata.company_id
-        : "";
+      const session = await loadSessionContext();
+      const companyId = session?.companyId ?? "";
 
-      if (authError || !authData.user || !companyId) {
+      if (!session || !companyId) {
         if (active) {
           setErrorMessage("Não foi possível identificar a empresa da sua sessão.");
           setIsLoading(false);
@@ -168,12 +167,10 @@ function PaymentsPage() {
     setStatusUpdateError("");
     setIsUpdatingStatus(true);
 
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    const companyId = typeof authData.user?.user_metadata?.company_id === "string"
-      ? authData.user.user_metadata.company_id
-      : "";
+    const session = await loadSessionContext();
+    const companyId = session?.companyId ?? "";
 
-    if (authError || !authData.user || !companyId || companyId !== payment.company_id) {
+    if (!session || !companyId || companyId !== payment.company_id) {
       setStatusUpdateError("Não foi possível confirmar sua empresa para atualizar este pagamento.");
       setIsUpdatingStatus(false);
       return;

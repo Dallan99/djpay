@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { loadSessionContext } from "@/lib/session";
 import {
   MESES,
   KIND_LABEL,
@@ -607,13 +608,10 @@ function ProfessionalsPage() {
     event.preventDefault();
     setFormError("");
 
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    const authenticatedCompanyId =
-      typeof authData.user?.user_metadata?.company_id === "string"
-        ? authData.user.user_metadata.company_id
-        : "";
+    const session = await loadSessionContext();
+    const authenticatedCompanyId = session?.companyId ?? "";
 
-    if (authError || !authData.user || !authenticatedCompanyId || authenticatedCompanyId !== companyId) {
+    if (!session || !authenticatedCompanyId || authenticatedCompanyId !== companyId) {
       setFormError("Não foi possível confirmar sua empresa. Faça login novamente e tente de novo.");
       return;
     }

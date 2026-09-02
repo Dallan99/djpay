@@ -140,7 +140,7 @@ const navigationItems = [
   { label: "Dashboard", icon: Sparkles, to: "/" },
   { label: "Profissionais", icon: User, to: "/" },
   { label: "Pagamentos", icon: ShoppingCart, to: "/pagamentos" },
-  { label: "Notas Fiscais", icon: FileText, to: "/" },
+  { label: "Notas Fiscais", icon: FileText, to: "/notas-fiscais" },
   { label: "Configurações", icon: ShieldCheck, to: "/" },
 ] as const;
 

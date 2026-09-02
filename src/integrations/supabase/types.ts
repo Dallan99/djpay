@@ -820,6 +820,10 @@ export type Database = {
         Args: { p_name: string }
         Returns: boolean
       }
+      dj_pay_can_insert_invoice_object: {
+        Args: { p_name: string }
+        Returns: boolean
+      }
       dj_pay_has_company_role: {
         Args: { p_company_id: string; p_roles: string[] }
         Returns: boolean

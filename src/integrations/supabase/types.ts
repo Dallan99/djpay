@@ -810,6 +810,16 @@ export type Database = {
       current_company_id: { Args: never; Returns: string }
       current_professional_contractor_id: { Args: never; Returns: string }
       current_user_role: { Args: never; Returns: string }
+      dj_is_active_status: { Args: { p_status: string }; Returns: boolean }
+      dj_normalize_role: { Args: { p_role: string }; Returns: string }
+      dj_pay_can_access_invoice_object: {
+        Args: { p_name: string }
+        Returns: boolean
+      }
+      dj_pay_can_delete_invoice_object: {
+        Args: { p_name: string }
+        Returns: boolean
+      }
       dj_pay_has_company_role: {
         Args: { p_company_id: string; p_roles: string[] }
         Returns: boolean
@@ -818,17 +828,27 @@ export type Database = {
         Args: { p_company_id: string; p_roles: string[] }
         Returns: boolean
       }
+      dj_pay_invoice_object_scope: {
+        Args: { p_name: string }
+        Returns: {
+          invoice_company_id: string
+          invoice_contractor_id: string
+          invoice_id: string
+        }[]
+      }
       dj_pay_is_admin: { Args: { p_company_id: string }; Returns: boolean }
       dj_pay_is_financeiro_ou_admin: {
         Args: { p_company_id: string }
         Returns: boolean
       }
+      dj_pay_is_invoice_staff: { Args: never; Returns: boolean }
       dj_pay_is_own_contractor:
         | {
             Args: { p_company_id: string; p_contractor_id: string }
             Returns: boolean
           }
         | { Args: { p_contractor_id: string }; Returns: boolean }
+      dj_try_uuid: { Args: { p_value: string }; Returns: string }
       is_company_admin: { Args: never; Returns: boolean }
       is_company_member: {
         Args: { target_company_id: string }

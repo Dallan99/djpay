@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { loadSessionContext } from "@/lib/session";
 import {
   MESES,
   KIND_LABEL,
@@ -516,8 +517,8 @@ function ProfessionalsPage() {
       setIsLoading(true);
       setErrorMessage("");
 
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError || !authData.user) {
+      const session = await loadSessionContext();
+      if (!session) {
         if (active) {
           setProfessionals([]);
           setErrorMessage("Não foi possível identificar sua sessão. Faça login novamente.");
@@ -526,8 +527,7 @@ function ProfessionalsPage() {
         return;
       }
 
-      const metadata = authData.user.user_metadata ?? {};
-      const companyId = typeof metadata.company_id === "string" ? metadata.company_id : "";
+      const companyId = session.companyId;
 
       if (!companyId) {
         if (active) {
@@ -544,9 +544,10 @@ function ProfessionalsPage() {
 
       const { data, error } = await supabase
         .from("contractors")
-        .select("id, company_id, nome_completo, razao_social, nome_fantasia, cpf_cnpj, inscricao_municipal, banco, agencia, conta, tipo_conta, chave_pix, tipo_chave_pix, cidade, estado, email, telefone, cargo, area, gestor, data_inicio, status")
+        .select("id, company_id, nome_completo, razao_social, nome_fantasia, cpf_cnpj, inscricao_municipal, banco, agencia, conta, tipo_conta, chave_pix, tipo_chave_pix, cidade, estado, email, telefone, cargo, area, gestor, data_inicio, valor_mensal, data_vencimento, data_encerramento, ajuda_custo, contrato_observacoes, contrato_status, status")
         .eq("company_id", companyId)
         .order("nome_completo", { ascending: true });
+
 
       if (!active) return;
 
@@ -607,13 +608,10 @@ function ProfessionalsPage() {
     event.preventDefault();
     setFormError("");
 
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    const authenticatedCompanyId =
-      typeof authData.user?.user_metadata?.company_id === "string"
-        ? authData.user.user_metadata.company_id
-        : "";
+    const session = await loadSessionContext();
+    const authenticatedCompanyId = session?.companyId ?? "";
 
-    if (authError || !authData.user || !authenticatedCompanyId || authenticatedCompanyId !== companyId) {
+    if (!session || !authenticatedCompanyId || authenticatedCompanyId !== companyId) {
       setFormError("Não foi possível confirmar sua empresa. Faça login novamente e tente de novo.");
       return;
     }

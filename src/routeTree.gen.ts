@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as NotasFiscaisRouteImport } from './routes/notas-fiscais'
 import { Route as PagamentosRouteImport } from './routes/pagamentos'
 import { Route as ProfissionaisIdRouteImport } from './routes/profissionais.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotasFiscaisRoute = NotasFiscaisRouteImport.update({
+  id: '/notas-fiscais',
+  path: '/notas-fiscais',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PagamentosRoute = PagamentosRouteImport.update({
@@ -31,30 +37,34 @@ const ProfissionaisIdRoute = ProfissionaisIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/notas-fiscais': typeof NotasFiscaisRoute
   '/pagamentos': typeof PagamentosRoute
   '/profissionais/$id': typeof ProfissionaisIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/notas-fiscais': typeof NotasFiscaisRoute
   '/pagamentos': typeof PagamentosRoute
   '/profissionais/$id': typeof ProfissionaisIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/notas-fiscais': typeof NotasFiscaisRoute
   '/pagamentos': typeof PagamentosRoute
   '/profissionais/$id': typeof ProfissionaisIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/pagamentos' | '/profissionais/$id'
+  fullPaths: '/' | '/notas-fiscais' | '/pagamentos' | '/profissionais/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/pagamentos' | '/profissionais/$id'
-  id: '__root__' | '/' | '/pagamentos' | '/profissionais/$id'
+  to: '/' | '/notas-fiscais' | '/pagamentos' | '/profissionais/$id'
+  id: '__root__' | '/' | '/notas-fiscais' | '/pagamentos' | '/profissionais/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  NotasFiscaisRoute: typeof NotasFiscaisRoute
   PagamentosRoute: typeof PagamentosRoute
   ProfissionaisIdRoute: typeof ProfissionaisIdRoute
 }
@@ -66,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notas-fiscais': {
+      id: '/notas-fiscais'
+      path: '/notas-fiscais'
+      fullPath: '/notas-fiscais'
+      preLoaderRoute: typeof NotasFiscaisRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pagamentos': {
@@ -87,6 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  NotasFiscaisRoute: NotasFiscaisRoute,
   PagamentosRoute: PagamentosRoute,
   ProfissionaisIdRoute: ProfissionaisIdRoute,
 }

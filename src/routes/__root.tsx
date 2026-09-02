@@ -21,6 +21,8 @@ import {
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "../integrations/supabase/client";
+import { loadSessionContext } from "../lib/session";
+
 import {
   Sheet,
   SheetClose,
@@ -138,7 +140,7 @@ const navigationItems = [
   { label: "Dashboard", icon: Sparkles, to: "/" },
   { label: "Profissionais", icon: User, to: "/" },
   { label: "Pagamentos", icon: ShoppingCart, to: "/pagamentos" },
-  { label: "Notas Fiscais", icon: FileText, to: "/" },
+  { label: "Notas Fiscais", icon: FileText, to: "/notas-fiscais" },
   { label: "Configurações", icon: ShieldCheck, to: "/" },
 ] as const;
 
@@ -236,30 +238,34 @@ function RootComponent() {
   useEffect(() => {
     let mounted = true;
 
-    void supabase.auth.getUser().then(({ data }) => {
-      if (!mounted || !data.user) return;
+    void loadSessionContext().then(async (session) => {
+      if (!mounted) return;
 
-      const metadata = data.user.user_metadata ?? {};
-      const name =
-        typeof metadata.full_name === "string"
-          ? metadata.full_name
-          : typeof metadata.name === "string"
-            ? metadata.name
-            : data.user.email?.split("@")[0] ?? "Usuário DJ PAY";
-      const company =
-        typeof metadata.company_name === "string"
-          ? metadata.company_name
-          : typeof metadata.company === "string"
-            ? metadata.company
-            : "Sua empresa";
+      if (!session) {
+        setAccount({ ...initialAccount, name: "Sessão não identificada" });
+        return;
+      }
 
-      setAccount({ company, name, email: data.user.email ?? "" });
+      const { data: companyRow } = await supabase
+        .from("companies")
+        .select("nome")
+        .eq("id", session.companyId)
+        .maybeSingle();
+
+      if (!mounted) return;
+
+      setAccount({
+        company: companyRow?.nome ?? "Sua empresa",
+        name: session.nome || "Usuário DJ PAY",
+        email: session.email,
+      });
     });
 
     return () => {
       mounted = false;
     };
   }, []);
+
 
   const handleNavigation = (item: string) => {
     setActiveItem(item);

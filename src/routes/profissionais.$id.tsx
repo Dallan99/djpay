@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { loadSessionContext } from "@/lib/session";
 
 export const Route = createFileRoute("/profissionais/$id")({
   component: ProfessionalDetailPage,
@@ -134,7 +135,7 @@ function getThirteenthConfiguration(notes: string | null) {
     return { calendario: "", observacoes: notes ?? "" };
   }
 
-  const [configuration, ...noteParts] = notes.split("\n");
+  const [configuration = "", ...noteParts] = notes.split("\n");
   try {
     const parsed = JSON.parse(configuration.replace(THIRTEENTH_CONFIGURATION_PREFIX, "")) as { calendario?: string };
     return { calendario: parsed.calendario ?? "", observacoes: noteParts.join("\n").trim() };
@@ -161,7 +162,7 @@ function getVacationConfiguration(notes: string | null) {
     };
   }
 
-  const [configuration, ...noteParts] = notes.split("\n");
+  const [configuration = "", ...noteParts] = notes.split("\n");
   try {
     const parsed = JSON.parse(configuration.replace(VACATION_CONFIGURATION_PREFIX, "")) as {
       ano?: number;
@@ -240,7 +241,7 @@ function formatCurrency(value: number | null) {
   }).format(value);
 }
 
-function DetailItem({ label, value }: { label: string | number | null }) {
+function DetailItem({ label, value }: { label: string; value?: string | number | null }) {
   return (
     <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -273,13 +274,10 @@ function ProfessionalDetailPage() {
       setIsLoading(true);
       setErrorMessage("");
 
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      const companyId =
-        typeof authData.user?.user_metadata?.company_id === "string"
-          ? authData.user.user_metadata.company_id
-          : "";
+      const session = await loadSessionContext();
+      const companyId = session?.companyId ?? "";
 
-      if (authError || !authData.user || !companyId) {
+      if (!session || !companyId) {
         if (active) {
           setProfessional(null);
           setErrorMessage("Não foi possível confirmar sua sessão e empresa vinculada.");

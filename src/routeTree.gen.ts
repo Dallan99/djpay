@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PagamentosRouteImport } from './routes/pagamentos'
+import { Route as ProfissionaisIdRouteImport } from './routes/profissionais.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PagamentosRoute = PagamentosRouteImport.update({
+  id: '/pagamentos',
+  path: '/pagamentos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfissionaisIdRoute = ProfissionaisIdRouteImport.update({
+  id: '/profissionais/$id',
+  path: '/profissionais/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/pagamentos': typeof PagamentosRoute
+  '/profissionais/$id': typeof ProfissionaisIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/pagamentos': typeof PagamentosRoute
+  '/profissionais/$id': typeof ProfissionaisIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/pagamentos': typeof PagamentosRoute
+  '/profissionais/$id': typeof ProfissionaisIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/pagamentos' | '/profissionais/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/pagamentos' | '/profissionais/$id'
+  id: '__root__' | '/' | '/pagamentos' | '/profissionais/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PagamentosRoute: typeof PagamentosRoute
+  ProfissionaisIdRoute: typeof ProfissionaisIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +68,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pagamentos': {
+      id: '/pagamentos'
+      path: '/pagamentos'
+      fullPath: '/pagamentos'
+      preLoaderRoute: typeof PagamentosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profissionais/$id': {
+      id: '/profissionais/$id'
+      path: '/profissionais/$id'
+      fullPath: '/profissionais/$id'
+      preLoaderRoute: typeof ProfissionaisIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PagamentosRoute: PagamentosRoute,
+  ProfissionaisIdRoute: ProfissionaisIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

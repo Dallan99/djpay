@@ -52,9 +52,9 @@ describe("caminho do objeto", () => {
         companyId: COMPANY_A,
         contractorId: CONTRACTOR_A,
         invoiceId: INVOICE_A,
-        fileName: "../Nota Fiscal Nº 12/2026 (final).pdf",
+        fileName: "../Nota Fiscal Nº 12 (final).pdf",
       }),
-    ).toBe(`${COMPANY_A}/${CONTRACTOR_A}/${INVOICE_A}/Nota-Fiscal-N-12-2026-final-.pdf`);
+    ).toBe(`${COMPANY_A}/${CONTRACTOR_A}/${INVOICE_A}/Nota-Fiscal-N-12-final-.pdf`);
   });
 
   it("recusa identificadores inválidos", () => {

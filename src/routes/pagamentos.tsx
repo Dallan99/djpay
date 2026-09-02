@@ -98,6 +98,8 @@ function PaymentsPage() {
   const [paymentTypeFilter, setPaymentTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusUpdateError, setStatusUpdateError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -155,6 +157,49 @@ function PaymentsPage() {
     () => new Map(contractors.map((contractor) => [contractor.id, contractor.nome_completo])),
     [contractors],
   );
+
+  const getEffectiveStatus = (payment: Payment) => {
+    if (payment.status === "paid" || payment.status === "cancelled") return payment.status;
+    const today = new Date().toISOString().slice(0, 10);
+    return payment.vencimento && payment.vencimento.slice(0, 10) < today ? "overdue" : payment.status;
+  };
+
+  const handleStatusChange = async (payment: Payment, status: string) => {
+    setStatusUpdateError("");
+    setIsUpdatingStatus(true);
+
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    const companyId = typeof authData.user?.user_metadata?.company_id === "string"
+      ? authData.user.user_metadata.company_id
+      : "";
+
+    if (authError || !authData.user || !companyId || companyId !== payment.company_id) {
+      setStatusUpdateError("Não foi possível confirmar sua empresa para atualizar este pagamento.");
+      setIsUpdatingStatus(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("payments")
+      .update({
+        status,
+        data_pagamento: status === "paid" ? new Date().toISOString().slice(0, 10) : null,
+      })
+      .eq("id", payment.id)
+      .eq("company_id", companyId)
+      .select("id, company_id, contractor_id, competencia, descricao, tipo_pagamento, valor, vencimento, data_pagamento, status")
+      .single();
+
+    setIsUpdatingStatus(false);
+
+    if (error || !data) {
+      setStatusUpdateError("Não foi possível atualizar o status. Verifique suas permissões e tente novamente.");
+      return;
+    }
+
+    setPayments((current) => current.map((item) => item.id === data.id ? data : item));
+    setSelectedPayment(data);
+  };
 
   const competencies = useMemo(
     () => [...new Set(payments.map((payment) => payment.competencia).filter((value): value is string => Boolean(value)))].sort().reverse(),

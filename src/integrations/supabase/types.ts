@@ -699,6 +699,7 @@ export type Database = {
           descricao: string | null
           id: string
           observacoes: string | null
+          source_key: string | null
           status: string
           tipo_pagamento: string
           tipo_pagamento_antes_padronizacao: string | null

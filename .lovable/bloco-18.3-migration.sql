@@ -319,7 +319,7 @@ BEGIN
              c.tipo_pagamento,
              c.source_key
       FROM candidates c
-      ON CONFLICT (source_key) WHERE source_key IS NOT NULL DO NOTHING
+      ON CONFLICT (company_id, source_key) WHERE source_key IS NOT NULL DO NOTHING
       RETURNING payments.contractor_id, payments.tipo_pagamento, payments.valor,
                 payments.vencimento, payments.source_key
     )

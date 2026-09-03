@@ -1,53 +1,35 @@
--- Bloco 18.3 — geração idempotente de pagamentos de uma competência
--- PREPARADA PARA REVISÃO. NÃO APLICADA. Sem cron. Não altera pagamentos existentes.
+-- Bloco 18.3 — Geração idempotente de pagamentos da competência
+-- REVISADO PARA REVISÃO. NÃO APLICADO. Sem cron. Não altera pagamentos existentes.
 
--- 1) Metadados de origem (colunas novas, nullable: nenhuma linha existente é alterada)
-ALTER TABLE public.payments
-  ADD COLUMN IF NOT EXISTS source_key text,
-  ADD COLUMN IF NOT EXISTS tipo_pagamento_canonico text;
-
+-- 1) Amplia o CHECK de tipo_pagamento em public.payments aceitando códigos canônicos sem invalidar legados.
+-- Reuse a coluna source_key e o índice criados no Bloco 18.1 (não cria novo índice nem coluna tipo_pagamento_canonico).
 DO $$
+DECLARE
+  v_constraint text;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conrelid = 'public.payments'::regclass
-      AND conname = 'payments_tipo_canonico_check'
-  ) THEN
-    ALTER TABLE public.payments
-      ADD CONSTRAINT payments_tipo_canonico_check
-      CHECK (tipo_pagamento_canonico IS NULL OR tipo_pagamento_canonico IN (
-        'monthly_fee','cost_allowance','thirteenth_invoice','paid_vacation',
-        'bonus','profit_sharing','commission','award','other'
-      ));
-  END IF;
+  FOR v_constraint IN 
+    SELECT conname 
+    FROM pg_constraint 
+    WHERE conrelid = 'public.payments'::regclass 
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) LIKE '%tipo_pagamento%'
+  LOOP
+    EXECUTE format('ALTER TABLE public.payments DROP CONSTRAINT IF EXISTS %I', v_constraint);
+  END LOOP;
 END $$;
 
--- chave determinística única (só para linhas geradas)
-CREATE UNIQUE INDEX IF NOT EXISTS payments_source_key_uidx
-  ON public.payments (source_key)
-  WHERE source_key IS NOT NULL;
+ALTER TABLE public.payments
+  ADD CONSTRAINT payments_tipo_pagamento_check
+  CHECK (tipo_pagamento IS NULL OR tipo_pagamento IN (
+    -- Códigos canônicos
+    'monthly_fee', 'cost_allowance', 'thirteenth_invoice', 'paid_vacation',
+    'bonus', 'profit_sharing', 'commission', 'award', 'other',
+    -- Validação e compatibilidade legada
+    'mensalidade', 'ajuda_custo', 'decima_terceira_nota', 'ferias',
+    'plr', 'comissao', 'premio', 'outros'
+  ));
 
--- 2) Mapeamento canônico -> vocabulário legado já aceito pelo CHECK de tipo_pagamento
-CREATE OR REPLACE FUNCTION public.dj_pay_canonical_to_legacy_type(p_type text)
-RETURNS text
-LANGUAGE sql
-IMMUTABLE
-SET search_path = ''
-AS $$
-  SELECT CASE p_type
-    WHEN 'monthly_fee'        THEN 'mensalidade'
-    WHEN 'cost_allowance'     THEN 'ajuda_custo'
-    WHEN 'thirteenth_invoice' THEN 'decima_terceira_nota'
-    WHEN 'paid_vacation'      THEN 'ferias'
-    WHEN 'bonus'              THEN 'bonus'
-    WHEN 'profit_sharing'     THEN 'plr'
-    WHEN 'commission'         THEN 'comissao'
-    WHEN 'award'              THEN 'premio'
-    ELSE 'outros'
-  END;
-$$;
-
--- Mapeamento inverso: tipo de benefício cadastrado -> tipo canônico
+-- 2) Mapeamento de tipo de benefício em código canônico
 CREATE OR REPLACE FUNCTION public.dj_pay_benefit_to_canonical_type(p_tipo text)
 RETURNS text
 LANGUAGE sql
@@ -81,8 +63,7 @@ AS $$
   END;
 $$;
 
--- 3) source_key determinística
---    empresa:profissional:AAAA-MM:tipo_canonico:discriminador
+-- 3) Geração determinística de source_key (reutilizando a convenção do Bloco 18.1)
 CREATE OR REPLACE FUNCTION public.dj_pay_source_key(
   p_company_id uuid,
   p_contractor_id uuid,
@@ -104,17 +85,7 @@ AS $$
   );
 $$;
 
--- 4) Geração idempotente da competência
---    Fallbacks aprovados no 18.2:
---      valor mensal      : contractor_financial_contracts.valor_mensal -> contractors.valor_mensal
---      ajuda de custo    : contractor_financial_benefits(cost_allowance).valor
---                          -> contractor_financial_contracts.ajuda_de_custo -> contractors.ajuda_custo
---      vencimento        : dia de contractor_financial_contracts.data_vencimento
---                          -> dia de contractors.data_vencimento -> último dia da competência
---                          (dia > dias do mês é limitado ao último dia do mês)
---      contrato vigente  : status ativo/active e data_inicio <= fim da competência
---                          e (data_encerramento é nula ou >= início da competência)
---      profissional      : contractors.status ativo/active
+-- 4) Função idempotente para geração de pagamentos da competência sem tabela temporária persistente
 CREATE OR REPLACE FUNCTION public.dj_pay_generate_competence_payments(
   p_company_id uuid,
   p_competencia date,
@@ -123,7 +94,7 @@ CREATE OR REPLACE FUNCTION public.dj_pay_generate_competence_payments(
 RETURNS TABLE (
   action text,
   contractor_id uuid,
-  tipo_canonico text,
+  tipo_pagamento text,
   valor numeric,
   vencimento date,
   source_key text
@@ -141,149 +112,235 @@ BEGIN
     RAISE EXCEPTION 'company_id e competencia são obrigatórios';
   END IF;
 
-  CREATE TEMP TABLE _dj_pay_candidates (
-    contractor_id uuid NOT NULL,
-    tipo_canonico text NOT NULL,
-    valor numeric(14,2) NOT NULL,
-    vencimento date,
-    descricao text,
-    source_key text NOT NULL
-  ) ON COMMIT DROP;
-
-  WITH ativo AS (
-    SELECT c.id AS contractor_id,
-           c.valor_mensal        AS c_valor_mensal,
-           c.ajuda_custo         AS c_ajuda_custo,
-           c.data_vencimento     AS c_data_vencimento
-    FROM public.contractors c
-    WHERE c.company_id = p_company_id
-      AND public.dj_is_active_status(c.status)
-  ), contrato AS (
-    SELECT DISTINCT ON (fc.contractor_id)
-           fc.contractor_id,
-           fc.valor_mensal,
-           fc.ajuda_de_custo,
-           fc.data_vencimento
-    FROM public.contractor_financial_contracts fc
-    WHERE fc.company_id = p_company_id
-      AND public.dj_is_active_status(fc.status)
-      AND (fc.data_inicio IS NULL OR fc.data_inicio <= v_month_end)
-      AND (fc.data_encerramento IS NULL OR fc.data_encerramento >= v_month_start)
-    ORDER BY fc.contractor_id, fc.data_inicio DESC NULLS LAST, fc.created_at DESC
-  ), base AS (
-    SELECT a.contractor_id,
-           coalesce(ct.valor_mensal, a.c_valor_mensal)                        AS valor_mensal,
-           coalesce(ct.ajuda_de_custo, a.c_ajuda_custo)                       AS ajuda_custo,
-           coalesce(ct.data_vencimento, a.c_data_vencimento)                  AS venc_ref
-    FROM ativo a
-    LEFT JOIN contrato ct ON ct.contractor_id = a.contractor_id
-  ), com_venc AS (
-    SELECT b.*,
-           CASE
-             WHEN b.venc_ref IS NULL THEN v_month_end
-             ELSE v_month_start
-                  + least(
-                      extract(day FROM b.venc_ref)::int,
-                      extract(day FROM v_month_end)::int
-                    ) - 1
-           END AS vencimento
-    FROM base b
-  )
-  INSERT INTO _dj_pay_candidates (contractor_id, tipo_canonico, valor, vencimento, descricao, source_key)
-  -- mensalidade a partir do contrato/profissional
-  SELECT cv.contractor_id, 'monthly_fee', round(cv.valor_mensal, 2), cv.vencimento,
-         public.payment_type_label('mensalidade'),
-         public.dj_pay_source_key(p_company_id, cv.contractor_id, v_month_start, 'monthly_fee', 'contract')
-  FROM com_venc cv
-  WHERE cv.valor_mensal IS NOT NULL AND cv.valor_mensal > 0
-  UNION ALL
-  -- ajuda de custo pelo fallback de contrato/profissional (quando não há benefício cadastrado)
-  SELECT cv.contractor_id, 'cost_allowance', round(cv.ajuda_custo, 2), cv.vencimento,
-         public.payment_type_label('ajuda_custo'),
-         public.dj_pay_source_key(p_company_id, cv.contractor_id, v_month_start, 'cost_allowance', 'contract')
-  FROM com_venc cv
-  WHERE cv.ajuda_custo IS NOT NULL AND cv.ajuda_custo > 0
-    AND NOT EXISTS (
-      SELECT 1 FROM public.contractor_financial_benefits fb
-      WHERE fb.company_id = p_company_id
-        AND fb.contractor_id = cv.contractor_id
-        AND public.dj_is_active_status(fb.status)
-        AND public.dj_pay_benefit_to_canonical_type(fb.tipo) = 'cost_allowance'
-    )
-  UNION ALL
-  -- benefícios cadastrados: mensais sempre; demais só no mes_pagamento da competência
-  SELECT cv.contractor_id,
-         public.dj_pay_benefit_to_canonical_type(fb.tipo),
-         round(fb.valor, 2),
-         coalesce(fb.data_pagamento, cv.vencimento),
-         coalesce(nullif(btrim(fb.descricao_outro), ''),
-                  public.payment_type_label(public.dj_pay_canonical_to_legacy_type(
-                    public.dj_pay_benefit_to_canonical_type(fb.tipo)))),
-         public.dj_pay_source_key(p_company_id, cv.contractor_id, v_month_start,
-                                  public.dj_pay_benefit_to_canonical_type(fb.tipo),
-                                  'benefit-' || fb.id::text)
-  FROM com_venc cv
-  JOIN public.contractor_financial_benefits fb
-    ON fb.contractor_id = cv.contractor_id
-   AND fb.company_id = p_company_id
-   AND public.dj_is_active_status(fb.status)
-  WHERE fb.valor IS NOT NULL AND fb.valor > 0
-    AND (
-      lower(btrim(coalesce(fb.periodicidade, ''))) IN ('mensal', 'monthly')
-      OR fb.mes_pagamento = extract(month FROM v_month_start)::smallint
-      OR (fb.data_pagamento IS NOT NULL
-          AND fb.data_pagamento BETWEEN v_month_start AND v_month_end)
-    );
-
   IF p_dry_run THEN
     RETURN QUERY
-      SELECT CASE WHEN EXISTS (
-               SELECT 1 FROM public.payments p WHERE p.source_key = c.source_key
-             ) THEN 'skipped' ELSE 'would_insert' END,
-             c.contractor_id, c.tipo_canonico, c.valor, c.vencimento, c.source_key
-      FROM _dj_pay_candidates c
-      ORDER BY 2, 3;
-    RETURN;
-  END IF;
+    WITH ativo AS (
+      SELECT c.id AS contractor_id,
+             c.valor_mensal        AS c_valor_mensal,
+             c.data_vencimento     AS c_data_vencimento
+      FROM public.contractors c
+      WHERE c.company_id = p_company_id
+        AND public.dj_is_active_status(c.status)
+    ), contrato AS (
+      SELECT DISTINCT ON (fc.contractor_id)
+             fc.id                 AS contract_id,
+             fc.contractor_id,
+             fc.valor_mensal,
+             fc.data_vencimento
+      FROM public.contractor_financial_contracts fc
+      WHERE fc.company_id = p_company_id
+        AND public.dj_is_active_status(fc.status)
+        AND (fc.data_inicio IS NULL OR fc.data_inicio <= v_month_end)
+        AND (fc.data_encerramento IS NULL OR fc.data_encerramento >= v_month_start)
+      ORDER BY fc.contractor_id, fc.data_inicio DESC NULLS LAST, fc.created_at DESC
+    ), base AS (
+      SELECT a.contractor_id,
+             ct.contract_id,
+             coalesce(ct.valor_mensal, a.c_valor_mensal)       AS valor_mensal,
+             coalesce(ct.data_vencimento, a.c_data_vencimento) AS venc_ref,
+             (ct.contract_id IS NOT NULL)                      AS is_from_contract
+      FROM ativo a
+      LEFT JOIN contrato ct ON ct.contractor_id = a.contractor_id
+    ), com_venc AS (
+      SELECT b.*,
+             CASE
+               WHEN b.venc_ref IS NULL THEN NULL
+               ELSE v_month_start
+                    + least(
+                        extract(day FROM b.venc_ref)::int,
+                        extract(day FROM v_month_end)::int
+                      ) - 1
+             END AS vencimento
+      FROM base b
+    ), candidates AS (
+      -- Mensalidade via contrato (source_key inclui contract_id) ou fallback legado distinto
+      SELECT cv.contractor_id,
+             'monthly_fee'::text AS tipo_pagamento,
+             round(cv.valor_mensal, 2) AS valor,
+             cv.vencimento,
+             public.payment_type_label('mensalidade') AS descricao,
+             public.dj_pay_source_key(
+               p_company_id, cv.contractor_id, v_month_start, 'monthly_fee',
+               CASE WHEN cv.is_from_contract THEN 'contract-' || cv.contract_id::text ELSE 'legacy-contractor' END
+             ) AS source_key
+      FROM com_venc cv
+      WHERE cv.valor_mensal IS NOT NULL AND cv.valor_mensal > 0
 
-  RETURN QUERY
-  WITH inserted AS (
-    INSERT INTO public.payments (
-      company_id, contractor_id, competencia, descricao, valor, vencimento,
-      status, tipo_pagamento, tipo_pagamento_canonico, source_key
+      UNION ALL
+
+      -- Benefícios ativos (suporta contract_benefits e fallback contractor_financial_benefits)
+      -- Não gera ajuda de custo de campos legados
+      SELECT cv.contractor_id,
+             public.dj_pay_benefit_to_canonical_type(fb.tipo) AS tipo_pagamento,
+             round(fb.valor, 2) AS valor,
+             coalesce(fb.data_pagamento, cv.vencimento) AS vencimento,
+             coalesce(
+               nullif(btrim(COALESCE(to_jsonb(fb)->>'descricao', to_jsonb(fb)->>'descricao_outro', '')), ''),
+               public.payment_type_label(public.dj_pay_benefit_to_canonical_type(fb.tipo))
+             ) AS descricao,
+             public.dj_pay_source_key(
+               p_company_id, cv.contractor_id, v_month_start,
+               public.dj_pay_benefit_to_canonical_type(fb.tipo),
+               'benefit-' || fb.id::text
+             ) AS source_key
+      FROM com_venc cv
+      JOIN (
+        SELECT id, contractor_id, company_id, tipo, valor, status, periodicidade, mes_pagamento, data_pagamento,
+               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao
+        FROM public.contract_benefits b
+        WHERE b.company_id = p_company_id
+        UNION ALL
+        SELECT id, contractor_id, company_id, tipo, valor, status, periodicidade, mes_pagamento, data_pagamento,
+               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao
+        FROM public.contractor_financial_benefits b
+        WHERE b.company_id = p_company_id
+          AND NOT EXISTS (
+            SELECT 1 FROM public.contract_benefits cb WHERE cb.id = b.id
+          )
+      ) fb ON fb.contractor_id = cv.contractor_id
+          AND fb.company_id = p_company_id
+          AND public.dj_is_active_status(fb.status)
+      WHERE fb.valor IS NOT NULL AND fb.valor > 0
+        AND (
+          lower(btrim(coalesce(fb.periodicidade, ''))) IN ('mensal', 'monthly')
+          OR fb.mes_pagamento = extract(month FROM v_month_start)::smallint
+          OR (fb.data_pagamento IS NOT NULL AND fb.data_pagamento BETWEEN v_month_start AND v_month_end)
+        )
     )
-    SELECT p_company_id, c.contractor_id, v_month_start, c.descricao, c.valor, c.vencimento,
-           'pending',
-           public.dj_pay_canonical_to_legacy_type(c.tipo_canonico),
-           c.tipo_canonico,
-           c.source_key
-    FROM _dj_pay_candidates c
-    ON CONFLICT (source_key) WHERE source_key IS NOT NULL DO NOTHING
-    RETURNING payments.contractor_id, payments.tipo_pagamento_canonico, payments.valor,
-              payments.vencimento, payments.source_key
-  )
-  SELECT 'inserted', i.contractor_id, i.tipo_pagamento_canonico, i.valor, i.vencimento, i.source_key
-  FROM inserted i
-  UNION ALL
-  SELECT 'skipped', c.contractor_id, c.tipo_canonico, c.valor, c.vencimento, c.source_key
-  FROM _dj_pay_candidates c
-  WHERE NOT EXISTS (SELECT 1 FROM inserted i WHERE i.source_key = c.source_key);
+    SELECT CASE WHEN EXISTS (
+             SELECT 1 FROM public.payments p WHERE p.source_key = c.source_key
+           ) THEN 'skipped' ELSE 'would_insert' END AS action,
+           c.contractor_id, c.tipo_pagamento, c.valor, c.vencimento, c.source_key
+    FROM candidates c
+    ORDER BY c.contractor_id, c.tipo_pagamento;
+
+  ELSE
+
+    RETURN QUERY
+    WITH ativo AS (
+      SELECT c.id AS contractor_id,
+             c.valor_mensal        AS c_valor_mensal,
+             c.data_vencimento     AS c_data_vencimento
+      FROM public.contractors c
+      WHERE c.company_id = p_company_id
+        AND public.dj_is_active_status(c.status)
+    ), contrato AS (
+      SELECT DISTINCT ON (fc.contractor_id)
+             fc.id                 AS contract_id,
+             fc.contractor_id,
+             fc.valor_mensal,
+             fc.data_vencimento
+      FROM public.contractor_financial_contracts fc
+      WHERE fc.company_id = p_company_id
+        AND public.dj_is_active_status(fc.status)
+        AND (fc.data_inicio IS NULL OR fc.data_inicio <= v_month_end)
+        AND (fc.data_encerramento IS NULL OR fc.data_encerramento >= v_month_start)
+      ORDER BY fc.contractor_id, fc.data_inicio DESC NULLS LAST, fc.created_at DESC
+    ), base AS (
+      SELECT a.contractor_id,
+             ct.contract_id,
+             coalesce(ct.valor_mensal, a.c_valor_mensal)       AS valor_mensal,
+             coalesce(ct.data_vencimento, a.c_data_vencimento) AS venc_ref,
+             (ct.contract_id IS NOT NULL)                      AS is_from_contract
+      FROM ativo a
+      LEFT JOIN contrato ct ON ct.contractor_id = a.contractor_id
+    ), com_venc AS (
+      SELECT b.*,
+             CASE
+               WHEN b.venc_ref IS NULL THEN NULL
+               ELSE v_month_start
+                    + least(
+                        extract(day FROM b.venc_ref)::int,
+                        extract(day FROM v_month_end)::int
+                      ) - 1
+             END AS vencimento
+      FROM base b
+    ), candidates AS (
+      -- Mensalidade via contrato (source_key inclui contract_id) ou fallback legado distinto
+      SELECT cv.contractor_id,
+             'monthly_fee'::text AS tipo_pagamento,
+             round(cv.valor_mensal, 2) AS valor,
+             cv.vencimento,
+             public.payment_type_label('mensalidade') AS descricao,
+             public.dj_pay_source_key(
+               p_company_id, cv.contractor_id, v_month_start, 'monthly_fee',
+               CASE WHEN cv.is_from_contract THEN 'contract-' || cv.contract_id::text ELSE 'legacy-contractor' END
+             ) AS source_key
+      FROM com_venc cv
+      WHERE cv.valor_mensal IS NOT NULL AND cv.valor_mensal > 0
+
+      UNION ALL
+
+      -- Benefícios ativos (suporta contract_benefits e fallback contractor_financial_benefits)
+      -- Não gera ajuda de custo de campos legados
+      SELECT cv.contractor_id,
+             public.dj_pay_benefit_to_canonical_type(fb.tipo) AS tipo_pagamento,
+             round(fb.valor, 2) AS valor,
+             coalesce(fb.data_pagamento, cv.vencimento) AS vencimento,
+             coalesce(
+               nullif(btrim(COALESCE(to_jsonb(fb)->>'descricao', to_jsonb(fb)->>'descricao_outro', '')), ''),
+               public.payment_type_label(public.dj_pay_benefit_to_canonical_type(fb.tipo))
+             ) AS descricao,
+             public.dj_pay_source_key(
+               p_company_id, cv.contractor_id, v_month_start,
+               public.dj_pay_benefit_to_canonical_type(fb.tipo),
+               'benefit-' || fb.id::text
+             ) AS source_key
+      FROM com_venc cv
+      JOIN (
+        SELECT id, contractor_id, company_id, tipo, valor, status, periodicidade, mes_pagamento, data_pagamento,
+               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao
+        FROM public.contract_benefits b
+        WHERE b.company_id = p_company_id
+        UNION ALL
+        SELECT id, contractor_id, company_id, tipo, valor, status, periodicidade, mes_pagamento, data_pagamento,
+               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao
+        FROM public.contractor_financial_benefits b
+        WHERE b.company_id = p_company_id
+          AND NOT EXISTS (
+            SELECT 1 FROM public.contract_benefits cb WHERE cb.id = b.id
+          )
+      ) fb ON fb.contractor_id = cv.contractor_id
+          AND fb.company_id = p_company_id
+          AND public.dj_is_active_status(fb.status)
+      WHERE fb.valor IS NOT NULL AND fb.valor > 0
+        AND (
+          lower(btrim(coalesce(fb.periodicidade, ''))) IN ('mensal', 'monthly')
+          OR fb.mes_pagamento = extract(month FROM v_month_start)::smallint
+          OR (fb.data_pagamento IS NOT NULL AND fb.data_pagamento BETWEEN v_month_start AND v_month_end)
+        )
+    ), inserted AS (
+      INSERT INTO public.payments (
+        company_id, contractor_id, competencia, descricao, valor, vencimento,
+        status, tipo_pagamento, source_key
+      )
+      SELECT p_company_id, c.contractor_id, v_month_start, c.descricao, c.valor, c.vencimento,
+             'pending',
+             c.tipo_pagamento,
+             c.source_key
+      FROM candidates c
+      ON CONFLICT (source_key) WHERE source_key IS NOT NULL DO NOTHING
+      RETURNING payments.contractor_id, payments.tipo_pagamento, payments.valor,
+                payments.vencimento, payments.source_key
+    )
+    SELECT 'inserted'::text AS action, i.contractor_id, i.tipo_pagamento, i.valor, i.vencimento, i.source_key
+    FROM inserted i
+    UNION ALL
+    SELECT 'skipped'::text AS action, c.contractor_id, c.tipo_pagamento, c.valor, c.vencimento, c.source_key
+    FROM candidates c
+    WHERE NOT EXISTS (SELECT 1 FROM inserted i WHERE i.source_key = c.source_key)
+    ORDER BY 2, 3;
+
+  END IF;
 END;
 $$;
 
--- 5) Execução restrita a postgres e service_role
-REVOKE ALL ON FUNCTION public.dj_pay_generate_competence_payments(uuid, date, boolean) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.dj_pay_generate_competence_payments(uuid, date, boolean) FROM anon, authenticated;
+-- 5) Restrição estrita de execução: apenas postgres e service_role
+REVOKE ALL ON FUNCTION public.dj_pay_generate_competence_payments(uuid, date, boolean) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.dj_pay_generate_competence_payments(uuid, date, boolean) TO postgres, service_role;
 
-REVOKE ALL ON FUNCTION public.dj_pay_source_key(uuid, uuid, date, text, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.dj_pay_source_key(uuid, uuid, date, text, text) FROM anon, authenticated;
+REVOKE ALL ON FUNCTION public.dj_pay_source_key(uuid, uuid, date, text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.dj_pay_source_key(uuid, uuid, date, text, text) TO postgres, service_role;
 
-REVOKE ALL ON FUNCTION public.dj_pay_canonical_to_legacy_type(text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.dj_pay_canonical_to_legacy_type(text) FROM anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.dj_pay_canonical_to_legacy_type(text) TO postgres, service_role;
-
-REVOKE ALL ON FUNCTION public.dj_pay_benefit_to_canonical_type(text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.dj_pay_benefit_to_canonical_type(text) FROM anon, authenticated;
+REVOKE ALL ON FUNCTION public.dj_pay_benefit_to_canonical_type(text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.dj_pay_benefit_to_canonical_type(text) TO postgres, service_role;

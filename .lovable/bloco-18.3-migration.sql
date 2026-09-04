@@ -194,6 +194,42 @@ BEGIN
                COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao
         FROM public.contract_benefits b
         WHERE b.company_id = p_company_id
+          AND NOT EXISTS (
+            SELECT 1
+            FROM public.contractor_financial_benefits cfb
+            WHERE cfb.company_id = b.company_id
+              AND cfb.contractor_id = b.contractor_id
+              AND public.dj_pay_benefit_to_canonical_type(cfb.tipo) =
+                  public.dj_pay_benefit_to_canonical_type(b.tipo)
+              AND CASE lower(btrim(coalesce(cfb.periodicidade, '')))
+                    WHEN 'mensal' THEN 'monthly'
+                    WHEN 'monthly' THEN 'monthly'
+                    WHEN 'anual' THEN 'annual'
+                    WHEN 'annual' THEN 'annual'
+                    WHEN 'trimestral' THEN 'quarterly'
+                    WHEN 'quarterly' THEN 'quarterly'
+                    WHEN 'semestral' THEN 'semiannual'
+                    WHEN 'semiannual' THEN 'semiannual'
+                    WHEN 'personalizado' THEN 'custom'
+                    WHEN 'personalizada' THEN 'custom'
+                    WHEN 'custom' THEN 'custom'
+                    ELSE lower(btrim(coalesce(cfb.periodicidade, '')))
+                  END =
+                  CASE lower(btrim(coalesce(b.periodicidade, '')))
+                    WHEN 'mensal' THEN 'monthly'
+                    WHEN 'monthly' THEN 'monthly'
+                    WHEN 'anual' THEN 'annual'
+                    WHEN 'annual' THEN 'annual'
+                    WHEN 'trimestral' THEN 'quarterly'
+                    WHEN 'quarterly' THEN 'quarterly'
+                    WHEN 'semestral' THEN 'semiannual'
+                    WHEN 'semiannual' THEN 'semiannual'
+                    WHEN 'personalizado' THEN 'custom'
+                    WHEN 'personalizada' THEN 'custom'
+                    WHEN 'custom' THEN 'custom'
+                    ELSE lower(btrim(coalesce(b.periodicidade, '')))
+                  END
+          )
       ) fb ON fb.contractor_id = cv.contractor_id
           AND fb.company_id = p_company_id
           AND public.dj_is_active_status(fb.status)
@@ -294,6 +330,42 @@ BEGIN
                COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao
         FROM public.contract_benefits b
         WHERE b.company_id = p_company_id
+          AND NOT EXISTS (
+            SELECT 1
+            FROM public.contractor_financial_benefits cfb
+            WHERE cfb.company_id = b.company_id
+              AND cfb.contractor_id = b.contractor_id
+              AND public.dj_pay_benefit_to_canonical_type(cfb.tipo) =
+                  public.dj_pay_benefit_to_canonical_type(b.tipo)
+              AND CASE lower(btrim(coalesce(cfb.periodicidade, '')))
+                    WHEN 'mensal' THEN 'monthly'
+                    WHEN 'monthly' THEN 'monthly'
+                    WHEN 'anual' THEN 'annual'
+                    WHEN 'annual' THEN 'annual'
+                    WHEN 'trimestral' THEN 'quarterly'
+                    WHEN 'quarterly' THEN 'quarterly'
+                    WHEN 'semestral' THEN 'semiannual'
+                    WHEN 'semiannual' THEN 'semiannual'
+                    WHEN 'personalizado' THEN 'custom'
+                    WHEN 'personalizada' THEN 'custom'
+                    WHEN 'custom' THEN 'custom'
+                    ELSE lower(btrim(coalesce(cfb.periodicidade, '')))
+                  END =
+                  CASE lower(btrim(coalesce(b.periodicidade, '')))
+                    WHEN 'mensal' THEN 'monthly'
+                    WHEN 'monthly' THEN 'monthly'
+                    WHEN 'anual' THEN 'annual'
+                    WHEN 'annual' THEN 'annual'
+                    WHEN 'trimestral' THEN 'quarterly'
+                    WHEN 'quarterly' THEN 'quarterly'
+                    WHEN 'semestral' THEN 'semiannual'
+                    WHEN 'semiannual' THEN 'semiannual'
+                    WHEN 'personalizado' THEN 'custom'
+                    WHEN 'personalizada' THEN 'custom'
+                    WHEN 'custom' THEN 'custom'
+                    ELSE lower(btrim(coalesce(b.periodicidade, '')))
+                  END
+          )
       ) fb ON fb.contractor_id = cv.contractor_id
           AND fb.company_id = p_company_id
           AND public.dj_is_active_status(fb.status)

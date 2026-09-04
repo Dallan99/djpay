@@ -699,6 +699,7 @@ export type Database = {
           descricao: string | null
           id: string
           observacoes: string | null
+          source_key: string | null
           status: string
           tipo_pagamento: string
           tipo_pagamento_antes_padronizacao: string | null
@@ -715,6 +716,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           observacoes?: string | null
+          source_key?: string | null
           status?: string
           tipo_pagamento?: string
           tipo_pagamento_antes_padronizacao?: string | null
@@ -731,6 +733,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           observacoes?: string | null
+          source_key?: string | null
           status?: string
           tipo_pagamento?: string
           tipo_pagamento_antes_padronizacao?: string | null
@@ -812,6 +815,10 @@ export type Database = {
       current_user_role: { Args: never; Returns: string }
       dj_is_active_status: { Args: { p_status: string }; Returns: boolean }
       dj_normalize_role: { Args: { p_role: string }; Returns: string }
+      dj_pay_benefit_to_canonical_type: {
+        Args: { p_tipo: string }
+        Returns: string
+      }
       dj_pay_can_access_invoice_object: {
         Args: { p_name: string }
         Returns: boolean
@@ -823,6 +830,21 @@ export type Database = {
       dj_pay_can_insert_invoice_object: {
         Args: { p_name: string }
         Returns: boolean
+      }
+      dj_pay_generate_competence_payments: {
+        Args: {
+          p_company_id: string
+          p_competencia: string
+          p_dry_run?: boolean
+        }
+        Returns: {
+          action: string
+          contractor_id: string
+          source_key: string
+          tipo_pagamento: string
+          valor: number
+          vencimento: string
+        }[]
       }
       dj_pay_has_company_role: {
         Args: { p_company_id: string; p_roles: string[] }
@@ -852,6 +874,16 @@ export type Database = {
             Returns: boolean
           }
         | { Args: { p_contractor_id: string }; Returns: boolean }
+      dj_pay_source_key: {
+        Args: {
+          p_company_id: string
+          p_competencia: string
+          p_contractor_id: string
+          p_discriminator?: string
+          p_type: string
+        }
+        Returns: string
+      }
       dj_try_uuid: { Args: { p_value: string }; Returns: string }
       is_company_admin: { Args: never; Returns: boolean }
       is_company_member: {

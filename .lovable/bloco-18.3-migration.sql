@@ -176,7 +176,19 @@ BEGIN
              coalesce(fb.data_pagamento, cv.vencimento) AS vencimento,
              coalesce(
                nullif(btrim(COALESCE(to_jsonb(fb)->>'descricao', to_jsonb(fb)->>'descricao_outro', '')), ''),
-               public.payment_type_label(public.dj_pay_benefit_to_canonical_type(fb.tipo))
+               public.payment_type_label(
+                 CASE public.dj_pay_benefit_to_canonical_type(fb.tipo)
+                   WHEN 'monthly_fee' THEN 'mensalidade'
+                   WHEN 'cost_allowance' THEN 'ajuda_custo'
+                   WHEN 'thirteenth_invoice' THEN 'decima_terceira_nota'
+                   WHEN 'paid_vacation' THEN 'ferias'
+                   WHEN 'bonus' THEN 'bonus'
+                   WHEN 'profit_sharing' THEN 'plr'
+                   WHEN 'commission' THEN 'comissao'
+                   WHEN 'award' THEN 'premio'
+                   ELSE 'outros'
+                 END
+               )
              ) AS descricao,
              public.dj_pay_source_key(
                p_company_id, cv.contractor_id, v_month_start,

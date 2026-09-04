@@ -2,8 +2,15 @@
 -- REVISADO PARA REVISÃO. NÃO APLICADO. Sem cron. Não altera pagamentos existentes.
 
 -- 1) Amplia o CHECK de tipo_pagamento em public.payments aceitando códigos canônicos sem invalidar legados.
--- Reuse a coluna source_key e o índice criados no Bloco 18.1 (não cria novo índice nem coluna tipo_pagamento_canonico).
-DO $$
+-- Garante a infraestrutura de idempotência, pois source_key e seu índice ainda não existem no banco real.
+ALTER TABLE public.payments
+  ADD COLUMN IF NOT EXISTS source_key text;
+
+CREATE UNIQUE INDEX IF NOT EXISTS payments_company_source_key_unique
+  ON public.payments (company_id, source_key)
+  WHERE source_key IS NOT NULL;
+
+DO $
 DECLARE
   v_constraint text;
 BEGIN
@@ -26,7 +33,7 @@ ALTER TABLE public.payments
     'bonus', 'profit_sharing', 'commission', 'award', 'other',
     -- Validação e compatibilidade legada
     'mensalidade', 'ajuda_custo', 'decima_terceira_nota', 'ferias',
-    'plr', 'comissao', 'premio', 'outros'
+    'plr', 'reembolso', 'comissao', 'premio', 'adiantamento', 'outros'
   ));
 
 -- 2) Mapeamento de tipo de benefício em código canônico
@@ -203,8 +210,10 @@ BEGIN
         FROM public.contractor_financial_benefits b
         WHERE b.company_id = p_company_id
         UNION ALL
-        SELECT id, contractor_id, company_id, tipo, valor, status, periodicidade, mes_pagamento, data_pagamento,
-               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao,
+        SELECT id, contractor_id, company_id, tipo, valor,
+               'active'::text AS status,
+               periodicidade, mes_pagamento, data_pagamento,
+               COALESCE(to_jsonb(b)->>'observacoes', '') AS descricao,
                'legacy-benefit-'::text AS source_prefix
         FROM public.contract_benefits b
         WHERE b.company_id = p_company_id
@@ -353,8 +362,10 @@ BEGIN
         FROM public.contractor_financial_benefits b
         WHERE b.company_id = p_company_id
         UNION ALL
-        SELECT id, contractor_id, company_id, tipo, valor, status, periodicidade, mes_pagamento, data_pagamento,
-               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao,
+        SELECT id, contractor_id, company_id, tipo, valor,
+               'active'::text AS status,
+               periodicidade, mes_pagamento, data_pagamento,
+               COALESCE(to_jsonb(b)->>'observacoes', '') AS descricao,
                'legacy-benefit-'::text AS source_prefix
         FROM public.contract_benefits b
         WHERE b.company_id = p_company_id

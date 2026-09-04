@@ -181,17 +181,19 @@ BEGIN
              public.dj_pay_source_key(
                p_company_id, cv.contractor_id, v_month_start,
                public.dj_pay_benefit_to_canonical_type(fb.tipo),
-               'benefit-' || fb.id::text
+               fb.source_prefix || fb.id::text
              ) AS source_key
       FROM com_venc cv
       JOIN (
         SELECT id, contractor_id, company_id, tipo, valor, status, periodicidade, mes_pagamento, data_pagamento,
-               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao
+               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao,
+               'financial-benefit-'::text AS source_prefix
         FROM public.contractor_financial_benefits b
         WHERE b.company_id = p_company_id
         UNION ALL
         SELECT id, contractor_id, company_id, tipo, valor, status, periodicidade, mes_pagamento, data_pagamento,
-               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao
+               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao,
+               'legacy-benefit-'::text AS source_prefix
         FROM public.contract_benefits b
         WHERE b.company_id = p_company_id
           AND NOT EXISTS (
@@ -317,17 +319,19 @@ BEGIN
              public.dj_pay_source_key(
                p_company_id, cv.contractor_id, v_month_start,
                public.dj_pay_benefit_to_canonical_type(fb.tipo),
-               'benefit-' || fb.id::text
+               fb.source_prefix || fb.id::text
              ) AS source_key
       FROM com_venc cv
       JOIN (
         SELECT id, contractor_id, company_id, tipo, valor, status, periodicidade, mes_pagamento, data_pagamento,
-               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao
+               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao,
+               'financial-benefit-'::text AS source_prefix
         FROM public.contractor_financial_benefits b
         WHERE b.company_id = p_company_id
         UNION ALL
         SELECT id, contractor_id, company_id, tipo, valor, status, periodicidade, mes_pagamento, data_pagamento,
-               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao
+               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao,
+               'legacy-benefit-'::text AS source_prefix
         FROM public.contract_benefits b
         WHERE b.company_id = p_company_id
           AND NOT EXISTS (

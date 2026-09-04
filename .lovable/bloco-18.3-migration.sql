@@ -187,16 +187,16 @@ BEGIN
       JOIN (
         SELECT id, contractor_id, company_id, tipo, valor, status, periodicidade, mes_pagamento, data_pagamento,
                COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao
-        FROM public.contract_benefits b
-        WHERE b.company_id = p_company_id
-        UNION ALL
-        SELECT id, contractor_id, company_id, tipo, valor, status, periodicidade, mes_pagamento, data_pagamento,
-               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao
         FROM public.contractor_financial_benefits b
         WHERE b.company_id = p_company_id
           AND NOT EXISTS (
             SELECT 1 FROM public.contract_benefits cb WHERE cb.id = b.id
           )
+        UNION ALL
+        SELECT id, contractor_id, company_id, tipo, valor, status, periodicidade, mes_pagamento, data_pagamento,
+               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao
+        FROM public.contract_benefits b
+        WHERE b.company_id = p_company_id
       ) fb ON fb.contractor_id = cv.contractor_id
           AND fb.company_id = p_company_id
           AND public.dj_is_active_status(fb.status)
@@ -290,16 +290,16 @@ BEGIN
       JOIN (
         SELECT id, contractor_id, company_id, tipo, valor, status, periodicidade, mes_pagamento, data_pagamento,
                COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao
-        FROM public.contract_benefits b
-        WHERE b.company_id = p_company_id
-        UNION ALL
-        SELECT id, contractor_id, company_id, tipo, valor, status, periodicidade, mes_pagamento, data_pagamento,
-               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao
         FROM public.contractor_financial_benefits b
         WHERE b.company_id = p_company_id
           AND NOT EXISTS (
             SELECT 1 FROM public.contract_benefits cb WHERE cb.id = b.id
           )
+        UNION ALL
+        SELECT id, contractor_id, company_id, tipo, valor, status, periodicidade, mes_pagamento, data_pagamento,
+               COALESCE(to_jsonb(b)->>'descricao', to_jsonb(b)->>'descricao_outro', '') AS descricao
+        FROM public.contract_benefits b
+        WHERE b.company_id = p_company_id
       ) fb ON fb.contractor_id = cv.contractor_id
           AND fb.company_id = p_company_id
           AND public.dj_is_active_status(fb.status)

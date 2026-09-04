@@ -10,7 +10,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS payments_company_source_key_unique
   ON public.payments (company_id, source_key)
   WHERE source_key IS NOT NULL;
 
-DO $
+DO $$
 DECLARE
   v_constraint text;
 BEGIN
@@ -27,7 +27,7 @@ END $$;
 
 ALTER TABLE public.payments
   ADD CONSTRAINT payments_tipo_pagamento_check
-  CHECK (tipo_pagamento IS NULL OR tipo_pagamento IN (
+  CHECK (tipo_pagamento IN (
     -- Códigos canônicos
     'monthly_fee', 'cost_allowance', 'thirteenth_invoice', 'paid_vacation',
     'bonus', 'profit_sharing', 'commission', 'award', 'other',

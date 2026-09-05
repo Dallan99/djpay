@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as NotasFiscaisRouteImport } from './routes/notas-fiscais'
 import { Route as PagamentosRouteImport } from './routes/pagamentos'
+import { Route as DemoVariantRouteImport } from './routes/demo.$variant'
 import { Route as ProfissionaisIdRouteImport } from './routes/profissionais.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +30,11 @@ const PagamentosRoute = PagamentosRouteImport.update({
   path: '/pagamentos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemoVariantRoute = DemoVariantRouteImport.update({
+  id: '/demo/$variant',
+  path: '/demo/$variant',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfissionaisIdRoute = ProfissionaisIdRouteImport.update({
   id: '/profissionais/$id',
   path: '/profissionais/$id',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/notas-fiscais': typeof NotasFiscaisRoute
   '/pagamentos': typeof PagamentosRoute
+  '/demo/$variant': typeof DemoVariantRoute
   '/profissionais/$id': typeof ProfissionaisIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/notas-fiscais': typeof NotasFiscaisRoute
   '/pagamentos': typeof PagamentosRoute
+  '/demo/$variant': typeof DemoVariantRoute
   '/profissionais/$id': typeof ProfissionaisIdRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,38 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/notas-fiscais': typeof NotasFiscaisRoute
   '/pagamentos': typeof PagamentosRoute
+  '/demo/$variant': typeof DemoVariantRoute
   '/profissionais/$id': typeof ProfissionaisIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/notas-fiscais' | '/pagamentos' | '/profissionais/$id'
+  fullPaths:
+    | '/'
+    | '/notas-fiscais'
+    | '/pagamentos'
+    | '/demo/$variant'
+    | '/profissionais/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/notas-fiscais' | '/pagamentos' | '/profissionais/$id'
-  id: '__root__' | '/' | '/notas-fiscais' | '/pagamentos' | '/profissionais/$id'
+  to:
+    | '/'
+    | '/notas-fiscais'
+    | '/pagamentos'
+    | '/demo/$variant'
+    | '/profissionais/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/notas-fiscais'
+    | '/pagamentos'
+    | '/demo/$variant'
+    | '/profissionais/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   NotasFiscaisRoute: typeof NotasFiscaisRoute
   PagamentosRoute: typeof PagamentosRoute
+  DemoVariantRoute: typeof DemoVariantRoute
   ProfissionaisIdRoute: typeof ProfissionaisIdRoute
 }
 
@@ -92,6 +118,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PagamentosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demo/$variant': {
+      id: '/demo/$variant'
+      path: '/demo/$variant'
+      fullPath: '/demo/$variant'
+      preLoaderRoute: typeof DemoVariantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profissionais/$id': {
       id: '/profissionais/$id'
       path: '/profissionais/$id'
@@ -106,6 +139,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   NotasFiscaisRoute: NotasFiscaisRoute,
   PagamentosRoute: PagamentosRoute,
+  DemoVariantRoute: DemoVariantRoute,
   ProfissionaisIdRoute: ProfissionaisIdRoute,
 }
 export const routeTree = rootRouteImport

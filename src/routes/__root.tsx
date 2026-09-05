@@ -4,31 +4,19 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import {
-  FileText,
-  Menu,
-  ShieldCheck,
-  ShoppingCart,
-  Sparkles,
-  User,
-  X,
-} from "lucide-react";
+import { FileText, Menu, ShieldCheck, ShoppingCart, Sparkles, User, X } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "../integrations/supabase/client";
 import { loadSessionContext } from "../lib/session";
 
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetTitle,
-} from "../components/ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetTitle } from "../components/ui/sheet";
 
 function NotFoundComponent() {
   return (
@@ -96,10 +84,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "DJ PAY — condições comerciais para prestadores PJ" },
-      { name: "description", content: "Organize condições comerciais e contratuais configuráveis para prestadores PJ." },
+      {
+        name: "description",
+        content: "Organize condições comerciais e contratuais configuráveis para prestadores PJ.",
+      },
       { name: "author", content: "Lovable" },
       { property: "og:title", content: "DJ PAY — condições comerciais para prestadores PJ" },
-      { property: "og:description", content: "Organize condições comerciais acordadas e o calendário de notas do contrato PJ." },
+      {
+        property: "og:description",
+        content: "Organize condições comerciais acordadas e o calendário de notas do contrato PJ.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
@@ -113,7 +107,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;600&display=swap",
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/branding/dj-pay-symbol.png", type: "image/png" },
     ],
   }),
   shellComponent: RootShell,
@@ -160,9 +154,9 @@ function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex min-w-0 items-center">
       <img
-        src="/uploads/da-1.png"
+        src={compact ? "/branding/dj-pay-symbol.png" : "/branding/dj-pay-logo-primary.png"}
         alt="DJ PAY — Pagamentos para PJ"
-        className={`block h-auto object-contain ${compact ? "w-12 sm:w-14" : "w-24 lg:w-28"}`}
+        className={`block h-auto object-contain ${compact ? "h-10 w-10 sm:h-11 sm:w-11" : "w-40 max-w-full sm:w-48 lg:w-56"}`}
       />
     </div>
   );
@@ -188,7 +182,9 @@ function AccountCard({ account }: { account: AccountSummary }) {
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-foreground">{account.name}</p>
-          {account.email && <p className="truncate text-xs text-muted-foreground">{account.email}</p>}
+          {account.email && (
+            <p className="truncate text-xs text-muted-foreground">{account.email}</p>
+          )}
         </div>
       </div>
     </div>
@@ -231,6 +227,7 @@ function Navigation({
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeItem, setActiveItem] = useState("Profissionais");
   const [account, setAccount] = useState<AccountSummary>(initialAccount);
@@ -266,11 +263,18 @@ function RootComponent() {
     };
   }, []);
 
-
   const handleNavigation = (item: string) => {
     setActiveItem(item);
     setMobileOpen(false);
   };
+
+  if (pathname.startsWith("/demo/")) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+      </QueryClientProvider>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -302,7 +306,10 @@ function RootComponent() {
           </header>
 
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetContent side="left" className="flex w-[18rem] flex-col border-border/60 bg-sidebar p-4 sm:w-[20rem]">
+            <SheetContent
+              side="left"
+              className="flex w-[18rem] flex-col border-border/60 bg-sidebar p-4 sm:w-[20rem]"
+            >
               <div className="flex items-center justify-between pr-8">
                 <Brand />
                 <SheetClose asChild>

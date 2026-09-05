@@ -1,14 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import {
-  AlertCircle,
-  ArrowLeft,
-  CalendarDays,
-  Mail,
-  Phone,
-  Plus,
-  User,
-} from "lucide-react";
+import { AlertCircle, ArrowLeft, CalendarDays, Mail, Phone, Plus, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -118,6 +110,20 @@ const PERIODICITY_LABELS: Record<string, string> = {
 
 const THIRTEENTH_CONFIGURATION_PREFIX = "[13th_note_config]";
 const VACATION_CONFIGURATION_PREFIX = "[vacation_config]";
+const DEMO_PROFESSIONALS_KEY = "dj-pay-demo-professionals";
+
+function getDemoBenefitsKey(professionalId: string) {
+  return `dj-pay-demo-benefits:${professionalId}`;
+}
+
+function readDemoData<Value>(key: string, fallback: Value): Value {
+  try {
+    const stored = window.localStorage.getItem(key);
+    return stored ? (JSON.parse(stored) as Value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 function getInstallmentCount(periodicity: string, customCalendar = "") {
   if (periodicity === "anual") return 1;
@@ -125,7 +131,10 @@ function getInstallmentCount(periodicity: string, customCalendar = "") {
   if (periodicity === "trimestral") return 4;
   if (periodicity === "mensal") return 12;
   if (periodicity === "personalizado") {
-    return customCalendar.split(",").map((date) => date.trim()).filter(Boolean).length;
+    return customCalendar
+      .split(",")
+      .map((date) => date.trim())
+      .filter(Boolean).length;
   }
   return 0;
 }
@@ -137,7 +146,9 @@ function getThirteenthConfiguration(notes: string | null) {
 
   const [configuration = "", ...noteParts] = notes.split("\n");
   try {
-    const parsed = JSON.parse(configuration.replace(THIRTEENTH_CONFIGURATION_PREFIX, "")) as { calendario?: string };
+    const parsed = JSON.parse(configuration.replace(THIRTEENTH_CONFIGURATION_PREFIX, "")) as {
+      calendario?: string;
+    };
     return { calendario: parsed.calendario ?? "", observacoes: noteParts.join("\n").trim() };
   } catch {
     return { calendario: "", observacoes: noteParts.join("\n").trim() };
@@ -192,8 +203,18 @@ function getVacationConfiguration(notes: string | null) {
 }
 
 const MONTHS = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
 ];
 
 const initialBenefitForm: BenefitForm = {
@@ -266,6 +287,7 @@ function ProfessionalDetailPage() {
   const [benefitError, setBenefitError] = useState("");
   const [benefitForm, setBenefitForm] = useState<BenefitForm>(initialBenefitForm);
   const [editingBenefitId, setEditingBenefitId] = useState<string | null>(null);
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -279,8 +301,19 @@ function ProfessionalDetailPage() {
 
       if (!session || !companyId) {
         if (active) {
-          setProfessional(null);
-          setErrorMessage("Não foi possível confirmar sua sessão e empresa vinculada.");
+          const demoProfessionals = readDemoData<Professional[]>(DEMO_PROFESSIONALS_KEY, []);
+          const demoProfessional = demoProfessionals.find((item) => item.id === id) ?? null;
+          setIsDemoMode(true);
+          setProfessional(
+            demoProfessional
+              ? { ...demoProfessional, observacoes: demoProfessional.observacoes ?? null }
+              : null,
+          );
+          setBenefits(readDemoData<ContractBenefit[]>(getDemoBenefitsKey(id), []));
+          setIsBenefitsLoading(false);
+          setErrorMessage(
+            demoProfessional ? "" : "Profissional demonstrativo não encontrado neste navegador.",
+          );
           setIsLoading(false);
         }
         return;
@@ -308,7 +341,9 @@ function ProfessionalDetailPage() {
 
         const { data: benefitsData, error: benefitsError } = await (supabase as any)
           .from("contractor_financial_benefits")
-          .select("id, tipo, valor, periodicidade, requer_nota_fiscal, mes_pagamento, data_pagamento, observacoes, status")
+          .select(
+            "id, tipo, valor, periodicidade, requer_nota_fiscal, mes_pagamento, data_pagamento, observacoes, status",
+          )
           .eq("contractor_id", id)
           .eq("company_id", companyId)
           .order("created_at", { ascending: true });
@@ -335,9 +370,16 @@ function ProfessionalDetailPage() {
   const loadBenefits = async () => {
     if (!professional) return;
 
+    if (isDemoMode) {
+      setBenefits(readDemoData<ContractBenefit[]>(getDemoBenefitsKey(professional.id), []));
+      return;
+    }
+
     const { data } = await (supabase as any)
       .from("contractor_financial_benefits")
-      .select("id, tipo, valor, periodicidade, requer_nota_fiscal, mes_pagamento, data_pagamento, observacoes, status")
+      .select(
+        "id, tipo, valor, periodicidade, requer_nota_fiscal, mes_pagamento, data_pagamento, observacoes, status",
+      )
       .eq("contractor_id", professional.id)
       .eq("company_id", professional.company_id)
       .order("created_at", { ascending: true });
@@ -364,7 +406,10 @@ function ProfessionalDetailPage() {
       requer_nota_fiscal: benefit.requer_nota_fiscal ? "sim" : "nao",
       mes_pagamento: benefit.mes_pagamento ? String(benefit.mes_pagamento) : "",
       data_pagamento: benefit.data_pagamento ?? "",
-      observacoes: benefit.tipo === "paid_vacation" ? vacationConfiguration.observacoes : thirteenthConfiguration.observacoes,
+      observacoes:
+        benefit.tipo === "paid_vacation"
+          ? vacationConfiguration.observacoes
+          : thirteenthConfiguration.observacoes,
       calendario_personalizado: thirteenthConfiguration.calendario,
       ferias_ano: String(vacationConfiguration.ano),
       ferias_dias: String(vacationConfiguration.dias || 10),
@@ -389,26 +434,47 @@ function ProfessionalDetailPage() {
         : 0;
     const value = isPaidVacation ? calculatedVacationValue : Number(benefitForm.valor);
 
-    if ((!isPaidVacation && (!benefitForm.valor || Number.isNaN(value) || value < 0)) || (isPaidVacation && professional.valor_mensal === null)) {
-      setBenefitError(isPaidVacation ? "Informe o valor mensal no contrato para calcular as férias remuneradas." : "Informe um valor válido para a condição comercial.");
+    if (
+      (!isPaidVacation && (!benefitForm.valor || Number.isNaN(value) || value < 0)) ||
+      (isPaidVacation && professional.valor_mensal === null)
+    ) {
+      setBenefitError(
+        isPaidVacation
+          ? "Informe o valor mensal no contrato para calcular as férias remuneradas."
+          : "Informe um valor válido para a condição comercial.",
+      );
       return;
     }
 
     const isThirteenthInvoice = benefitForm.tipo === "thirteenth_invoice";
-    const installments = getInstallmentCount(benefitForm.periodicidade, benefitForm.calendario_personalizado);
+    const installments = getInstallmentCount(
+      benefitForm.periodicidade,
+      benefitForm.calendario_personalizado,
+    );
 
-    if (isThirteenthInvoice && benefitForm.periodicidade === "personalizado" && installments === 0) {
+    if (
+      isThirteenthInvoice &&
+      benefitForm.periodicidade === "personalizado" &&
+      installments === 0
+    ) {
       setBenefitError("Informe ao menos uma data no calendário personalizado.");
       return;
     }
 
     const thirteenthNotes = `${THIRTEENTH_CONFIGURATION_PREFIX}${JSON.stringify({ calendario: benefitForm.calendario_personalizado.trim() })}`;
     if (isPaidVacation && (!Number.isInteger(vacationDays) || vacationDays < 1)) {
-      setBenefitError("Informe uma quantidade válida de dias disponíveis para o período comercial.");
+      setBenefitError(
+        "Informe uma quantidade válida de dias disponíveis para o período comercial.",
+      );
       return;
     }
 
-    if (isPaidVacation && (!Number.isInteger(vacationDaysUsed) || vacationDaysUsed < 0 || vacationDaysUsed > vacationDays)) {
+    if (
+      isPaidVacation &&
+      (!Number.isInteger(vacationDaysUsed) ||
+        vacationDaysUsed < 0 ||
+        vacationDaysUsed > vacationDays)
+    ) {
       setBenefitError("Os dias utilizados devem ficar entre zero e os dias disponíveis.");
       return;
     }
@@ -418,6 +484,7 @@ function ProfessionalDetailPage() {
       dias: vacationDays,
       diasUtilizados: vacationDaysUsed,
       remuneradas: benefitForm.ferias_remuneradas === "sim",
+      pagamento: benefitForm.ferias_pagamento,
     })}`;
     const benefitData = {
       tipo: benefitForm.tipo,
@@ -434,6 +501,27 @@ function ProfessionalDetailPage() {
     };
 
     setIsSavingBenefit(true);
+    if (isDemoMode) {
+      const demoBenefit: ContractBenefit = {
+        id: editingBenefitId ?? crypto.randomUUID(),
+        ...benefitData,
+        status: benefits.find((item) => item.id === editingBenefitId)?.status ?? "active",
+      };
+      const updatedBenefits = editingBenefitId
+        ? benefits.map((item) => (item.id === editingBenefitId ? demoBenefit : item))
+        : [...benefits, demoBenefit];
+      window.localStorage.setItem(
+        getDemoBenefitsKey(professional.id),
+        JSON.stringify(updatedBenefits),
+      );
+      setBenefits(updatedBenefits);
+      setIsSavingBenefit(false);
+      setBenefitForm(initialBenefitForm);
+      setEditingBenefitId(null);
+      setIsBenefitDialogOpen(false);
+      return;
+    }
+
     const query = (supabase as any).from("contractor_financial_benefits");
     const { error } = editingBenefitId
       ? await query
@@ -450,7 +538,9 @@ function ProfessionalDetailPage() {
 
     setIsSavingBenefit(false);
     if (error) {
-      setBenefitError("Não foi possível salvar a condição comercial. Verifique suas permissões e tente novamente.");
+      setBenefitError(
+        "Não foi possível salvar a condição comercial. Verifique suas permissões e tente novamente.",
+      );
       return;
     }
 
@@ -464,6 +554,18 @@ function ProfessionalDetailPage() {
     if (!professional) return;
 
     const isActive = benefit.status !== "inactive";
+    if (isDemoMode) {
+      const updatedBenefits = benefits.map((item) =>
+        item.id === benefit.id ? { ...item, status: isActive ? "inactive" : "active" } : item,
+      );
+      window.localStorage.setItem(
+        getDemoBenefitsKey(professional.id),
+        JSON.stringify(updatedBenefits),
+      );
+      setBenefits(updatedBenefits);
+      return;
+    }
+
     const { error } = await (supabase as any)
       .from("contractor_financial_benefits")
       .update({ status: isActive ? "inactive" : "active" })
@@ -528,17 +630,30 @@ function ProfessionalDetailPage() {
     .join("")
     .toUpperCase();
   const statusLabel = STATUS_LABELS[professional.status] ?? "Não informado";
-  const statusStyle = STATUS_STYLES[professional.status] ?? "border-border bg-muted text-muted-foreground";
+  const statusStyle =
+    STATUS_STYLES[professional.status] ?? "border-border bg-muted text-muted-foreground";
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 font-sans">
       <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
-        <Button asChild variant="ghost" className="-ml-3 rounded-xl text-muted-foreground hover:text-foreground">
+        <Button
+          asChild
+          variant="ghost"
+          className="-ml-3 rounded-xl text-muted-foreground hover:text-foreground"
+        >
           <Link to="/">
             <ArrowLeft className="size-4" />
             Voltar para profissionais
           </Link>
         </Button>
+
+        {isDemoMode && (
+          <div className="mt-5 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground">
+            <span className="font-semibold text-primary">Modo demonstração.</span> Este perfil e
+            suas condições comerciais ficam salvos somente neste navegador até o acesso com uma
+            conta da empresa.
+          </div>
+        )}
 
         <section className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-card/75 shadow-lg shadow-black/5">
           <div className="border-b border-border/60 bg-gradient-to-br from-primary/10 via-card to-muted/30 p-6 sm:p-8">
@@ -548,7 +663,9 @@ function ProfessionalDetailPage() {
                   {initials || <User className="size-7" />}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-muted-foreground">Perfil do profissional</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Perfil do profissional
+                  </p>
                   <h1
                     className="mt-1 truncate text-3xl font-semibold tracking-tight text-foreground sm:text-4xl"
                     style={{ fontFamily: "var(--font-display)" }}
@@ -556,7 +673,8 @@ function ProfessionalDetailPage() {
                     {professional.nome_completo}
                   </h1>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    {[professional.cargo, professional.area].filter(Boolean).join(" · ") || "Dados profissionais não informados"}
+                    {[professional.cargo, professional.area].filter(Boolean).join(" · ") ||
+                      "Dados profissionais não informados"}
                   </p>
                 </div>
               </div>
@@ -587,10 +705,15 @@ function ProfessionalDetailPage() {
                 <User className="size-5" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
+                <h2
+                  className="text-xl font-semibold tracking-tight"
+                  style={{ fontFamily: "var(--font-display)" }}
+                >
                   Dados bancários
                 </h2>
-                <p className="text-sm text-muted-foreground">Informações de pagamento protegidas pelas permissões deste profissional.</p>
+                <p className="text-sm text-muted-foreground">
+                  Informações de pagamento protegidas pelas permissões deste profissional.
+                </p>
               </div>
             </div>
             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -611,28 +734,52 @@ function ProfessionalDetailPage() {
                 <CalendarDays className="size-5" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
+                <h2
+                  className="text-xl font-semibold tracking-tight"
+                  style={{ fontFamily: "var(--font-display)" }}
+                >
                   Contrato financeiro
                 </h2>
-                <p className="text-sm text-muted-foreground">Condições comerciais individuais acordadas entre a empresa e este prestador PJ.</p>
+                <p className="text-sm text-muted-foreground">
+                  Condições comerciais individuais acordadas entre a empresa e este prestador PJ.
+                </p>
               </div>
               {professional.contrato_status && (
-                <Badge variant="outline" className="ml-auto rounded-full border-primary/20 bg-primary/5 px-3 py-1 capitalize text-primary">
+                <Badge
+                  variant="outline"
+                  className="ml-auto rounded-full border-primary/20 bg-primary/5 px-3 py-1 capitalize text-primary"
+                >
                   {professional.contrato_status.replaceAll("_", " ")}
                 </Badge>
               )}
             </div>
             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <DetailItem label="Valor mensal" value={formatCurrency(professional.valor_mensal)} />
-              <DetailItem label="Ajuda de custo acordada" value={formatCurrency(professional.ajuda_custo)} />
-              <DetailItem label="Data de vencimento" value={formatDate(professional.data_vencimento)} />
+              <DetailItem
+                label="Ajuda de custo acordada"
+                value={formatCurrency(professional.ajuda_custo)}
+              />
+              <DetailItem
+                label="Data de vencimento"
+                value={formatDate(professional.data_vencimento)}
+              />
               <DetailItem label="Data de início" value={formatDate(professional.data_inicio)} />
-              <DetailItem label="Data de encerramento" value={formatDate(professional.data_encerramento)} />
-              <DetailItem label="Status do contrato" value={professional.contrato_status?.replaceAll("_", " ") ?? null} />
+              <DetailItem
+                label="Data de encerramento"
+                value={formatDate(professional.data_encerramento)}
+              />
+              <DetailItem
+                label="Status do contrato"
+                value={professional.contrato_status?.replaceAll("_", " ") ?? null}
+              />
             </div>
             <div className="mt-4 rounded-xl border border-border/60 bg-muted/20 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Observações do contrato</p>
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground">{professional.contrato_observacoes || "Nenhuma observação contratual cadastrada."}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Observações do contrato
+              </p>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground">
+                {professional.contrato_observacoes || "Nenhuma observação contratual cadastrada."}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -645,10 +792,15 @@ function ProfessionalDetailPage() {
                   <CalendarDays className="size-5" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
+                  <h2
+                    className="text-xl font-semibold tracking-tight"
+                    style={{ fontFamily: "var(--font-display)" }}
+                  >
                     Condições comerciais configuráveis
                   </h2>
-                  <p className="text-sm text-muted-foreground">Itens financeiros definidos em contrato entre a empresa e este prestador PJ.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Itens financeiros definidos em contrato entre a empresa e este prestador PJ.
+                  </p>
                 </div>
               </div>
               <Button
@@ -663,53 +815,129 @@ function ProfessionalDetailPage() {
 
             {isBenefitsLoading ? (
               <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {[1, 2, 3].map((item) => <div key={item} className="h-36 animate-pulse rounded-xl bg-muted/60" />)}
+                {[1, 2, 3].map((item) => (
+                  <div key={item} className="h-36 animate-pulse rounded-xl bg-muted/60" />
+                ))}
               </div>
             ) : benefits.length > 0 ? (
               <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {benefits.map((benefit) => (
-                  <article key={benefit.id} className={`rounded-xl border p-4 transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg ${benefit.status === "inactive" ? "border-border/60 bg-muted/40 opacity-75" : "border-border/60 bg-muted/20"}`}>
+                  <article
+                    key={benefit.id}
+                    className={`rounded-xl border p-4 transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg ${benefit.status === "inactive" ? "border-border/60 bg-muted/40 opacity-75" : "border-border/60 bg-muted/20"}`}
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-semibold text-foreground">
-                            {BENEFIT_TYPES.find((type) => type.value === benefit.tipo)?.label ?? "Outros"}
+                            {BENEFIT_TYPES.find((type) => type.value === benefit.tipo)?.label ??
+                              "Outros"}
                           </p>
-                          <Badge variant="outline" className={`rounded-full px-2 py-0.5 ${benefit.status === "inactive" ? "border-border bg-muted text-muted-foreground" : "border-success/30 bg-success/10 text-success"}`}>
+                          <Badge
+                            variant="outline"
+                            className={`rounded-full px-2 py-0.5 ${benefit.status === "inactive" ? "border-border bg-muted text-muted-foreground" : "border-success/30 bg-success/10 text-success"}`}
+                          >
                             {benefit.status === "inactive" ? "Inativo" : "Ativo"}
                           </Badge>
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">{PERIODICITY_LABELS[benefit.periodicidade] ?? benefit.periodicidade}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {PERIODICITY_LABELS[benefit.periodicidade] ?? benefit.periodicidade}
+                        </p>
                       </div>
-                      <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 text-primary">
-                        {benefit.tipo === "thirteenth_invoice" ? `Total: ${formatCurrency(benefit.valor)}` : formatCurrency(benefit.valor)}
+                      <Badge
+                        variant="outline"
+                        className="rounded-full border-primary/20 bg-primary/5 text-primary"
+                      >
+                        {benefit.tipo === "thirteenth_invoice"
+                          ? `Total: ${formatCurrency(benefit.valor)}`
+                          : formatCurrency(benefit.valor)}
                       </Badge>
                     </div>
                     <div className="mt-4 space-y-1 text-xs text-muted-foreground">
-                      {benefit.tipo === "thirteenth_invoice" && benefit.periodicidade !== "nao_aplicavel" && getBenefitInstallmentValue(benefit) !== null && (
-                        <p className="font-medium text-primary">{getInstallmentCount(benefit.periodicidade, getThirteenthConfiguration(benefit.observacoes).calendario)} parcela(s) de {formatCurrency(getBenefitInstallmentValue(benefit))}</p>
+                      {benefit.tipo === "thirteenth_invoice" &&
+                        benefit.periodicidade !== "nao_aplicavel" &&
+                        getBenefitInstallmentValue(benefit) !== null && (
+                          <p className="font-medium text-primary">
+                            {getInstallmentCount(
+                              benefit.periodicidade,
+                              getThirteenthConfiguration(benefit.observacoes).calendario,
+                            )}{" "}
+                            parcela(s) de {formatCurrency(getBenefitInstallmentValue(benefit))}
+                          </p>
+                        )}
+                      {benefit.tipo === "thirteenth_invoice" &&
+                        benefit.periodicidade === "nao_aplicavel" && (
+                          <p>Condição não aplicável a este contrato.</p>
+                        )}
+                      {benefit.tipo === "paid_vacation" &&
+                        (() => {
+                          const vacation = getVacationConfiguration(benefit.observacoes);
+                          const balance = Math.max(vacation.dias - vacation.diasUtilizados, 0);
+                          return (
+                            <>
+                              <p className="font-medium text-primary">
+                                {vacation.ano}: {vacation.dias} dias disponíveis ·{" "}
+                                {vacation.diasUtilizados} utilizados · {balance} de saldo
+                              </p>
+                              <p>
+                                {vacation.remuneradas
+                                  ? "Período comercial remunerado"
+                                  : "Período comercial não remunerado"}
+                              </p>
+                              {vacation.remuneradas && (
+                                <p className="font-medium text-primary">
+                                  {vacation.pagamento === "junto_mensal"
+                                    ? "Pago junto ao valor mensal"
+                                    : "Pago separadamente"}
+                                </p>
+                              )}
+                            </>
+                          );
+                        })()}
+                      <p>
+                        {benefit.requer_nota_fiscal
+                          ? "Requer nota fiscal"
+                          : "Não requer nota fiscal"}
+                      </p>
+                      {benefit.data_pagamento && (
+                        <p>Pagamento: {formatDate(benefit.data_pagamento)}</p>
                       )}
-                      {benefit.tipo === "thirteenth_invoice" && benefit.periodicidade === "nao_aplicavel" && <p>Condição não aplicável a este contrato.</p>}
-                      {benefit.tipo === "paid_vacation" && (() => {
-                        const vacation = getVacationConfiguration(benefit.observacoes);
-                        const balance = Math.max(vacation.dias - vacation.diasUtilizados, 0);
-                        return <>
-                          <p className="font-medium text-primary">{vacation.ano}: {vacation.dias} dias disponíveis · {vacation.diasUtilizados} utilizados · {balance} de saldo</p>
-                          <p>{vacation.remuneradas ? "Período comercial remunerado" : "Período comercial não remunerado"}</p>
-                          {vacation.remuneradas && <p className="font-medium text-primary">{vacation.pagamento === "junto_mensal" ? "Pago junto ao valor mensal" : "Pago separadamente"}</p>}
-                        </>; 
-                      })()}
-                      <p>{benefit.requer_nota_fiscal ? "Requer nota fiscal" : "Não requer nota fiscal"}</p>
-                      {benefit.data_pagamento && <p>Pagamento: {formatDate(benefit.data_pagamento)}</p>}
-                      {!benefit.data_pagamento && benefit.mes_pagamento && <p>Mês previsto: {MONTHS[benefit.mes_pagamento - 1]}</p>}
+                      {!benefit.data_pagamento && benefit.mes_pagamento && (
+                        <p>Mês previsto: {MONTHS[benefit.mes_pagamento - 1]}</p>
+                      )}
                     </div>
-                    {benefit.tipo === "thirteenth_invoice" && getThirteenthConfiguration(benefit.observacoes).calendario && <p className="mt-3 border-t border-border/60 pt-3 text-sm leading-6 text-muted-foreground">Calendário: {getThirteenthConfiguration(benefit.observacoes).calendario}</p>}
-                    {(benefit.tipo === "paid_vacation" ? getVacationConfiguration(benefit.observacoes).observacoes : getThirteenthConfiguration(benefit.observacoes).observacoes) && <p className="mt-3 border-t border-border/60 pt-3 text-sm leading-6 text-muted-foreground">{benefit.tipo === "paid_vacation" ? getVacationConfiguration(benefit.observacoes).observacoes : getThirteenthConfiguration(benefit.observacoes).observacoes}</p>}
+                    {benefit.tipo === "thirteenth_invoice" &&
+                      getThirteenthConfiguration(benefit.observacoes).calendario && (
+                        <p className="mt-3 border-t border-border/60 pt-3 text-sm leading-6 text-muted-foreground">
+                          Calendário: {getThirteenthConfiguration(benefit.observacoes).calendario}
+                        </p>
+                      )}
+                    {(benefit.tipo === "paid_vacation"
+                      ? getVacationConfiguration(benefit.observacoes).observacoes
+                      : getThirteenthConfiguration(benefit.observacoes).observacoes) && (
+                      <p className="mt-3 border-t border-border/60 pt-3 text-sm leading-6 text-muted-foreground">
+                        {benefit.tipo === "paid_vacation"
+                          ? getVacationConfiguration(benefit.observacoes).observacoes
+                          : getThirteenthConfiguration(benefit.observacoes).observacoes}
+                      </p>
+                    )}
                     <div className="mt-4 flex flex-wrap gap-2 border-t border-border/60 pt-3">
-                      <Button type="button" variant="outline" size="sm" onClick={() => openEditBenefitDialog(benefit)} className="rounded-lg">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEditBenefitDialog(benefit)}
+                        className="rounded-lg"
+                      >
                         Editar
                       </Button>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => void handleBenefitStatusChange(benefit)} className="rounded-lg text-muted-foreground hover:text-foreground">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void handleBenefitStatusChange(benefit)}
+                        className="rounded-lg text-muted-foreground hover:text-foreground"
+                      >
                         {benefit.status === "inactive" ? "Ativar" : "Desativar"}
                       </Button>
                     </div>
@@ -718,8 +946,13 @@ function ProfessionalDetailPage() {
               </div>
             ) : (
               <div className="mt-6 rounded-xl border border-dashed border-border bg-muted/20 px-5 py-8 text-center">
-                <p className="font-medium text-foreground">Nenhuma condição comercial adicional cadastrada</p>
-                <p className="mt-1 text-sm text-muted-foreground">Adicione itens acordados, como ajuda de custo, 13ª nota, férias remuneradas, bônus ou outras condições deste contrato.</p>
+                <p className="font-medium text-foreground">
+                  Nenhuma condição comercial adicional cadastrada
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Adicione itens acordados, como ajuda de custo, 13ª nota, férias remuneradas, bônus
+                  ou outras condições deste contrato.
+                </p>
               </div>
             )}
           </CardContent>
@@ -733,25 +966,38 @@ function ProfessionalDetailPage() {
                   <User className="size-5" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
+                  <h2
+                    className="text-xl font-semibold tracking-tight"
+                    style={{ fontFamily: "var(--font-display)" }}
+                  >
                     Dados de contato
                   </h2>
-                  <p className="text-sm text-muted-foreground">Informações cadastradas para este profissional.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Informações cadastradas para este profissional.
+                  </p>
                 </div>
               </div>
               <div className="mt-6 space-y-3">
                 <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 p-4">
                   <Mail className="size-5 shrink-0 text-primary" />
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">E-mail</p>
-                    <p className="mt-1 truncate text-sm font-medium">{professional.email || "Não informado"}</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      E-mail
+                    </p>
+                    <p className="mt-1 truncate text-sm font-medium">
+                      {professional.email || "Não informado"}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 p-4">
                   <Phone className="size-5 shrink-0 text-primary" />
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Telefone</p>
-                    <p className="mt-1 text-sm font-medium">{professional.telefone || "Não informado"}</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Telefone
+                    </p>
+                    <p className="mt-1 text-sm font-medium">
+                      {professional.telefone || "Não informado"}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -765,14 +1011,18 @@ function ProfessionalDetailPage() {
                   <CalendarDays className="size-5" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
+                  <h2
+                    className="text-xl font-semibold tracking-tight"
+                    style={{ fontFamily: "var(--font-display)" }}
+                  >
                     Observações
                   </h2>
                   <p className="text-sm text-muted-foreground">Anotações internas do cadastro.</p>
                 </div>
               </div>
               <div className="mt-6 min-h-28 rounded-xl border border-border/60 bg-muted/20 p-4 text-sm leading-6 text-muted-foreground">
-                {professional.observacoes || "Nenhuma observação cadastrada para este profissional."}
+                {professional.observacoes ||
+                  "Nenhuma observação cadastrada para este profissional."}
               </div>
             </CardContent>
           </Card>
@@ -795,95 +1045,252 @@ function ProfessionalDetailPage() {
             <DialogTitle className="text-2xl" style={{ fontFamily: "var(--font-display)" }}>
               {editingBenefitId ? "Editar condição comercial" : "Adicionar condição comercial"}
             </DialogTitle>
-            <DialogDescription>Defina itens financeiros comerciais acordados entre a empresa e o prestador. Eles não representam direitos trabalhistas obrigatórios.</DialogDescription>
+            <DialogDescription>
+              Defina itens financeiros comerciais acordados entre a empresa e o prestador. Eles não
+              representam direitos trabalhistas obrigatórios.
+            </DialogDescription>
           </DialogHeader>
           <form className="space-y-5" onSubmit={handleSaveBenefit}>
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="benefit-type">Tipo de condição comercial</Label>
-                <Select value={benefitForm.tipo} onValueChange={(value) => updateBenefitField("tipo", value)}>
-                  <SelectTrigger id="benefit-type" className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>{BENEFIT_TYPES.map((type) => <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>)}</SelectContent>
+                <Select
+                  value={benefitForm.tipo}
+                  onValueChange={(value) => updateBenefitField("tipo", value)}
+                >
+                  <SelectTrigger id="benefit-type" className="h-10 rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BENEFIT_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="benefit-value">{benefitForm.tipo === "thirteenth_invoice" ? "Valor total previsto" : benefitForm.tipo === "paid_vacation" ? "Valor calculado das férias" : "Valor"}</Label>
-                <Input id="benefit-value" type="number" min="0" step="0.01" required={benefitForm.tipo !== "paid_vacation"} readOnly={benefitForm.tipo === "paid_vacation"} value={benefitForm.tipo === "paid_vacation" ? String(benefitForm.ferias_remuneradas === "sim" ? ((professional.valor_mensal ?? 0) / 30) * (Number(benefitForm.ferias_dias_utilizados) || 0) : 0) : benefitForm.valor} onChange={(event) => updateBenefitField("valor", event.target.value)} placeholder="Ex.: 500,00" className="h-10 rounded-xl read-only:bg-muted/50" />
+                <Label htmlFor="benefit-value">
+                  {benefitForm.tipo === "thirteenth_invoice"
+                    ? "Valor total previsto"
+                    : benefitForm.tipo === "paid_vacation"
+                      ? "Valor calculado das férias"
+                      : "Valor"}
+                </Label>
+                <Input
+                  id="benefit-value"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  required={benefitForm.tipo !== "paid_vacation"}
+                  readOnly={benefitForm.tipo === "paid_vacation"}
+                  value={
+                    benefitForm.tipo === "paid_vacation"
+                      ? String(
+                          benefitForm.ferias_remuneradas === "sim"
+                            ? ((professional.valor_mensal ?? 0) / 30) *
+                                (Number(benefitForm.ferias_dias_utilizados) || 0)
+                            : 0,
+                        )
+                      : benefitForm.valor
+                  }
+                  onChange={(event) => updateBenefitField("valor", event.target.value)}
+                  placeholder="Ex.: 500,00"
+                  className="h-10 rounded-xl read-only:bg-muted/50"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="benefit-periodicity">Periodicidade</Label>
-                <Select value={benefitForm.periodicidade} onValueChange={(value) => updateBenefitField("periodicidade", value)}>
-                  <SelectTrigger id="benefit-periodicity" className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                <Select
+                  value={benefitForm.periodicidade}
+                  onValueChange={(value) => updateBenefitField("periodicidade", value)}
+                >
+                  <SelectTrigger id="benefit-periodicity" className="h-10 rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {benefitForm.tipo === "thirteenth_invoice" && <SelectItem value="nao_aplicavel">Não aplicável</SelectItem>}
-                    <SelectItem value="mensal">Mensal</SelectItem><SelectItem value="trimestral">Trimestral</SelectItem><SelectItem value="semestral">Semestral</SelectItem><SelectItem value="anual">Anual</SelectItem><SelectItem value="unico">Pagamento único</SelectItem><SelectItem value="personalizado">Calendário personalizado</SelectItem>
+                    {benefitForm.tipo === "thirteenth_invoice" && (
+                      <SelectItem value="nao_aplicavel">Não aplicável</SelectItem>
+                    )}
+                    <SelectItem value="mensal">Mensal</SelectItem>
+                    <SelectItem value="trimestral">Trimestral</SelectItem>
+                    <SelectItem value="semestral">Semestral</SelectItem>
+                    <SelectItem value="anual">Anual</SelectItem>
+                    <SelectItem value="unico">Pagamento único</SelectItem>
+                    <SelectItem value="personalizado">Calendário personalizado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="benefit-invoice">Necessita nota fiscal?</Label>
-                <Select value={benefitForm.requer_nota_fiscal} onValueChange={(value) => updateBenefitField("requer_nota_fiscal", value)}>
-                  <SelectTrigger id="benefit-invoice" className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="sim">Sim</SelectItem><SelectItem value="nao">Não</SelectItem></SelectContent>
+                <Select
+                  value={benefitForm.requer_nota_fiscal}
+                  onValueChange={(value) => updateBenefitField("requer_nota_fiscal", value)}
+                >
+                  <SelectTrigger id="benefit-invoice" className="h-10 rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sim">Sim</SelectItem>
+                    <SelectItem value="nao">Não</SelectItem>
+                  </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="benefit-month">Mês de pagamento</Label>
-                <Select value={benefitForm.mes_pagamento} onValueChange={(value) => updateBenefitField("mes_pagamento", value)}>
-                  <SelectTrigger id="benefit-month" className="h-10 rounded-xl"><SelectValue placeholder="Opcional" /></SelectTrigger>
-                  <SelectContent>{MONTHS.map((month, index) => <SelectItem key={month} value={String(index + 1)}>{month}</SelectItem>)}</SelectContent>
+                <Select
+                  value={benefitForm.mes_pagamento}
+                  onValueChange={(value) => updateBenefitField("mes_pagamento", value)}
+                >
+                  <SelectTrigger id="benefit-month" className="h-10 rounded-xl">
+                    <SelectValue placeholder="Opcional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONTHS.map((month, index) => (
+                      <SelectItem key={month} value={String(index + 1)}>
+                        {month}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="benefit-date">Data de pagamento</Label>
-                <Input id="benefit-date" type="date" value={benefitForm.data_pagamento} onChange={(event) => updateBenefitField("data_pagamento", event.target.value)} className="h-10 rounded-xl" />
+                <Input
+                  id="benefit-date"
+                  type="date"
+                  value={benefitForm.data_pagamento}
+                  onChange={(event) => updateBenefitField("data_pagamento", event.target.value)}
+                  className="h-10 rounded-xl"
+                />
               </div>
             </div>
             {benefitForm.tipo === "paid_vacation" && (
               <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
-                <p className="text-sm font-semibold text-foreground">Configuração do período comercial</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">Defina esta condição específica do contrato PJ. Ela não representa direito trabalhista obrigatório.</p>
+                <p className="text-sm font-semibold text-foreground">
+                  Configuração do período comercial
+                </p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Defina esta condição específica do contrato PJ. Ela não representa direito
+                  trabalhista obrigatório.
+                </p>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="vacation-year">Ano de referência</Label>
-                    <Input id="vacation-year" type="number" min="2000" max="2100" value={benefitForm.ferias_ano} onChange={(event) => updateBenefitField("ferias_ano", event.target.value)} className="h-10 rounded-xl" />
+                    <Input
+                      id="vacation-year"
+                      type="number"
+                      min="2000"
+                      max="2100"
+                      value={benefitForm.ferias_ano}
+                      onChange={(event) => updateBenefitField("ferias_ano", event.target.value)}
+                      className="h-10 rounded-xl"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="vacation-days">Dias disponíveis</Label>
-                    <Select value={["10", "15", "20", "30"].includes(benefitForm.ferias_dias) ? benefitForm.ferias_dias : "personalizado"} onValueChange={(value) => updateBenefitField("ferias_dias", value === "personalizado" ? "" : value)}>
-                      <SelectTrigger id="vacation-days" className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="10">10 dias</SelectItem><SelectItem value="15">15 dias</SelectItem><SelectItem value="20">20 dias</SelectItem><SelectItem value="30">30 dias</SelectItem><SelectItem value="personalizado">Quantidade personalizada</SelectItem></SelectContent>
+                    <Select
+                      value={
+                        ["10", "15", "20", "30"].includes(benefitForm.ferias_dias)
+                          ? benefitForm.ferias_dias
+                          : "personalizado"
+                      }
+                      onValueChange={(value) =>
+                        updateBenefitField("ferias_dias", value === "personalizado" ? "" : value)
+                      }
+                    >
+                      <SelectTrigger id="vacation-days" className="h-10 rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10 dias</SelectItem>
+                        <SelectItem value="15">15 dias</SelectItem>
+                        <SelectItem value="20">20 dias</SelectItem>
+                        <SelectItem value="30">30 dias</SelectItem>
+                        <SelectItem value="personalizado">Quantidade personalizada</SelectItem>
+                      </SelectContent>
                     </Select>
                   </div>
                   {!["10", "15", "20", "30"].includes(benefitForm.ferias_dias) && (
                     <div className="space-y-2">
                       <Label htmlFor="vacation-custom-days">Quantidade personalizada</Label>
-                      <Input id="vacation-custom-days" type="number" min="1" step="1" required value={benefitForm.ferias_dias} onChange={(event) => updateBenefitField("ferias_dias", event.target.value)} placeholder="Ex.: 25" className="h-10 rounded-xl" />
+                      <Input
+                        id="vacation-custom-days"
+                        type="number"
+                        min="1"
+                        step="1"
+                        required
+                        value={benefitForm.ferias_dias}
+                        onChange={(event) => updateBenefitField("ferias_dias", event.target.value)}
+                        placeholder="Ex.: 25"
+                        className="h-10 rounded-xl"
+                      />
                     </div>
                   )}
                   <div className="space-y-2">
                     <Label htmlFor="vacation-days-used">Dias utilizados</Label>
-                    <Input id="vacation-days-used" type="number" min="0" step="1" required value={benefitForm.ferias_dias_utilizados} onChange={(event) => updateBenefitField("ferias_dias_utilizados", event.target.value)} className="h-10 rounded-xl" />
+                    <Input
+                      id="vacation-days-used"
+                      type="number"
+                      min="0"
+                      step="1"
+                      required
+                      value={benefitForm.ferias_dias_utilizados}
+                      onChange={(event) =>
+                        updateBenefitField("ferias_dias_utilizados", event.target.value)
+                      }
+                      className="h-10 rounded-xl"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="vacation-paid">O período é remunerado?</Label>
-                    <Select value={benefitForm.ferias_remuneradas} onValueChange={(value) => updateBenefitField("ferias_remuneradas", value)}>
-                      <SelectTrigger id="vacation-paid" className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="sim">Sim, remunerado</SelectItem><SelectItem value="nao">Não remunerado</SelectItem></SelectContent>
+                    <Select
+                      value={benefitForm.ferias_remuneradas}
+                      onValueChange={(value) => updateBenefitField("ferias_remuneradas", value)}
+                    >
+                      <SelectTrigger id="vacation-paid" className="h-10 rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sim">Sim, remunerado</SelectItem>
+                        <SelectItem value="nao">Não remunerado</SelectItem>
+                      </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="vacation-payment">Como será pago?</Label>
-                    <Select value={benefitForm.ferias_pagamento} onValueChange={(value) => updateBenefitField("ferias_pagamento", value)} disabled={benefitForm.ferias_remuneradas === "nao"}>
-                      <SelectTrigger id="vacation-payment" className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="separado">Pago separadamente</SelectItem><SelectItem value="junto_mensal">Junto ao pagamento mensal</SelectItem></SelectContent>
+                    <Select
+                      value={benefitForm.ferias_pagamento}
+                      onValueChange={(value) => updateBenefitField("ferias_pagamento", value)}
+                      disabled={benefitForm.ferias_remuneradas === "nao"}
+                    >
+                      <SelectTrigger id="vacation-payment" className="h-10 rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="separado">Pago separadamente</SelectItem>
+                        <SelectItem value="junto_mensal">Junto ao pagamento mensal</SelectItem>
+                      </SelectContent>
                     </Select>
                   </div>
                 </div>
                 {Number.isFinite(Number(benefitForm.ferias_dias)) && (
                   <div className="mt-4 rounded-lg border border-primary/15 bg-background/70 p-3 text-sm">
-                    <p className="text-primary">Saldo de {Math.max(Number(benefitForm.ferias_dias) - (Number(benefitForm.ferias_dias_utilizados) || 0), 0)} dia(s) para {benefitForm.ferias_ano || "o ano informado"}.</p>
-                    <p className="mt-1 text-muted-foreground">{benefitForm.ferias_remuneradas === "sim" ? `Cálculo: ${formatCurrency(professional.valor_mensal)} ÷ 30 × ${Number(benefitForm.ferias_dias_utilizados) || 0} dia(s) = ${formatCurrency(((professional.valor_mensal ?? 0) / 30) * (Number(benefitForm.ferias_dias_utilizados) || 0))}.` : "Período não remunerado: não há valor adicional a pagar."}</p>
+                    <p className="text-primary">
+                      Saldo de{" "}
+                      {Math.max(
+                        Number(benefitForm.ferias_dias) -
+                          (Number(benefitForm.ferias_dias_utilizados) || 0),
+                        0,
+                      )}{" "}
+                      dia(s) para {benefitForm.ferias_ano || "o ano informado"}.
+                    </p>
+                    <p className="mt-1 text-muted-foreground">
+                      {benefitForm.ferias_remuneradas === "sim"
+                        ? `Cálculo: ${formatCurrency(professional.valor_mensal)} ÷ 30 × ${Number(benefitForm.ferias_dias_utilizados) || 0} dia(s) = ${formatCurrency(((professional.valor_mensal ?? 0) / 30) * (Number(benefitForm.ferias_dias_utilizados) || 0))}.`
+                        : "Período não remunerado: não há valor adicional a pagar."}
+                    </p>
                   </div>
                 )}
               </div>
@@ -894,24 +1301,85 @@ function ProfessionalDetailPage() {
                 {benefitForm.periodicidade === "personalizado" && (
                   <div className="mt-3 space-y-2">
                     <Label htmlFor="thirteenth-calendar">Datas previstas do calendário</Label>
-                    <Input id="thirteenth-calendar" value={benefitForm.calendario_personalizado} onChange={(event) => updateBenefitField("calendario_personalizado", event.target.value)} placeholder="Ex.: 15/03, 15/06, 15/09, 15/12" className="h-10 rounded-xl" />
-                    <p className="text-xs leading-5 text-muted-foreground">Informe uma data para cada parcela, separando-as por vírgula.</p>
+                    <Input
+                      id="thirteenth-calendar"
+                      value={benefitForm.calendario_personalizado}
+                      onChange={(event) =>
+                        updateBenefitField("calendario_personalizado", event.target.value)
+                      }
+                      placeholder="Ex.: 15/03, 15/06, 15/09, 15/12"
+                      className="h-10 rounded-xl"
+                    />
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      Informe uma data para cada parcela, separando-as por vírgula.
+                    </p>
                   </div>
                 )}
-                {benefitForm.periodicidade !== "nao_aplicavel" && benefitForm.valor && getInstallmentCount(benefitForm.periodicidade, benefitForm.calendario_personalizado) > 0 && (
-                  <p className="mt-3 text-sm text-primary">{getInstallmentCount(benefitForm.periodicidade, benefitForm.calendario_personalizado)} parcela(s) previstas de {formatCurrency(Number(benefitForm.valor) / getInstallmentCount(benefitForm.periodicidade, benefitForm.calendario_personalizado))}.</p>
+                {benefitForm.periodicidade !== "nao_aplicavel" &&
+                  benefitForm.valor &&
+                  getInstallmentCount(
+                    benefitForm.periodicidade,
+                    benefitForm.calendario_personalizado,
+                  ) > 0 && (
+                    <p className="mt-3 text-sm text-primary">
+                      {getInstallmentCount(
+                        benefitForm.periodicidade,
+                        benefitForm.calendario_personalizado,
+                      )}{" "}
+                      parcela(s) previstas de{" "}
+                      {formatCurrency(
+                        Number(benefitForm.valor) /
+                          getInstallmentCount(
+                            benefitForm.periodicidade,
+                            benefitForm.calendario_personalizado,
+                          ),
+                      )}
+                      .
+                    </p>
+                  )}
+                {benefitForm.periodicidade === "nao_aplicavel" && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Esta condição ficará registrada como não aplicável ao contrato atual.
+                  </p>
                 )}
-                {benefitForm.periodicidade === "nao_aplicavel" && <p className="mt-2 text-sm text-muted-foreground">Esta condição ficará registrada como não aplicável ao contrato atual.</p>}
               </div>
             )}
             <div className="space-y-2">
               <Label htmlFor="benefit-notes">Observações</Label>
-              <textarea id="benefit-notes" value={benefitForm.observacoes} onChange={(event) => updateBenefitField("observacoes", event.target.value)} placeholder="Registre condições ou regras específicas." className="min-h-24 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-all duration-200 placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/25" />
+              <textarea
+                id="benefit-notes"
+                value={benefitForm.observacoes}
+                onChange={(event) => updateBenefitField("observacoes", event.target.value)}
+                placeholder="Registre condições ou regras específicas."
+                className="min-h-24 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-all duration-200 placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/25"
+              />
             </div>
-            {benefitError && <div className="rounded-xl border border-destructive/25 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">{benefitError}</div>}
+            {benefitError && (
+              <div className="rounded-xl border border-destructive/25 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
+                {benefitError}
+              </div>
+            )}
             <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => setIsBenefitDialogOpen(false)} disabled={isSavingBenefit} className="rounded-xl">Cancelar</Button>
-              <Button type="submit" disabled={isSavingBenefit} className="rounded-xl shadow-md shadow-primary/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">{isSavingBenefit ? "Salvando..." : editingBenefitId ? "Salvar alterações" : "Salvar condição"}</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsBenefitDialogOpen(false)}
+                disabled={isSavingBenefit}
+                className="rounded-xl"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSavingBenefit}
+                className="rounded-xl shadow-md shadow-primary/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+              >
+                {isSavingBenefit
+                  ? "Salvando..."
+                  : editingBenefitId
+                    ? "Salvar alterações"
+                    : "Salvar condição"}
+              </Button>
             </div>
           </form>
         </DialogContent>

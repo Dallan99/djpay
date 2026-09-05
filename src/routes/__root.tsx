@@ -187,6 +187,14 @@ function AccountCard({ account }: { account: AccountSummary }) {
           )}
         </div>
       </div>
+      {account.name === "Sessão não identificada" && (
+        <Link
+          to="/login"
+          className="mt-3 flex h-9 items-center justify-center rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          Entrar para usar dados reais
+        </Link>
+      )}
     </div>
   );
 }
@@ -268,7 +276,7 @@ function RootComponent() {
     setMobileOpen(false);
   };
 
-  if (pathname.startsWith("/demo/")) {
+  if (pathname.startsWith("/demo/") || pathname === "/login") {
     return (
       <QueryClientProvider client={queryClient}>
         <Outlet />

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowRight,
@@ -62,6 +62,28 @@ type Theme = {
   border: string;
   ink: string;
 };
+
+type DemoActions = {
+  navigate: (screen: ScreenKey) => void;
+  notify: (message: string) => void;
+};
+
+const DemoActionContext = createContext<DemoActions | null>(null);
+
+function useDemoActions() {
+  const actions = useContext(DemoActionContext);
+  if (!actions) throw new Error("Demo actions are unavailable");
+  return actions;
+}
+
+function downloadDemoFile(filename: string, content: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
 
 const THEMES: Record<VariantKey, Theme> = {
   corporativo: {
@@ -195,6 +217,13 @@ function DemoRoute() {
   const [screen, setScreen] = useState<ScreenKey>("overview");
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    if (!notice) return;
+    const timeout = window.setTimeout(() => setNotice(""), 3200);
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
 
   const themeStyle = useMemo(
     () =>
@@ -211,191 +240,201 @@ function DemoRoute() {
   );
 
   return (
-    <main
-      style={themeStyle}
-      className="min-h-screen bg-[var(--demo-canvas)] text-[var(--demo-ink)]"
-    >
-      <div className="border-b border-[var(--demo-border)] bg-white/90 px-4 py-3 backdrop-blur md:px-6">
-        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="rounded-full bg-[var(--demo-primary-soft)] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--demo-primary)]">
-              Exploração visual
-            </span>
-            <span className="hidden text-sm text-slate-500 sm:inline">
-              Dados fictícios — nenhuma alteração no banco ou no fluxo real
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {(Object.keys(THEMES) as VariantKey[]).map((key) => (
+    <DemoActionContext.Provider value={{ navigate: setScreen, notify: setNotice }}>
+      <main
+        style={themeStyle}
+        className="min-h-screen bg-[var(--demo-canvas)] text-[var(--demo-ink)]"
+      >
+        <div className="border-b border-[var(--demo-border)] bg-white/90 px-4 py-3 backdrop-blur md:px-6">
+          <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="rounded-full bg-[var(--demo-primary-soft)] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--demo-primary)]">
+                Exploração visual
+              </span>
+              <span className="hidden text-sm text-slate-500 sm:inline">
+                Dados fictícios — nenhuma alteração no banco ou no fluxo real
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {(Object.keys(THEMES) as VariantKey[]).map((key) => (
+                <Link
+                  key={key}
+                  to={`/demo/${key}`}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${key === variant ? "bg-[var(--demo-primary)] text-white" : "text-slate-600 hover:bg-slate-100"}`}
+                >
+                  {THEMES[key].label}
+                </Link>
+              ))}
               <Link
-                key={key}
-                to={`/demo/${key}`}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${key === variant ? "bg-[var(--demo-primary)] text-white" : "text-slate-600 hover:bg-slate-100"}`}
+                to="/"
+                className="ml-1 hidden text-xs font-semibold text-slate-500 underline-offset-4 hover:underline md:inline"
               >
-                {THEMES[key].label}
+                Voltar ao produto atual
               </Link>
-            ))}
-            <Link
-              to="/"
-              className="ml-1 hidden text-xs font-semibold text-slate-500 underline-offset-4 hover:underline md:inline"
-            >
-              Voltar ao produto atual
-            </Link>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="flex min-h-[calc(100vh-57px)]">
-        <aside
-          className={`hidden shrink-0 flex-col border-r border-[var(--demo-border)] bg-[var(--demo-sidebar)] transition-all duration-200 lg:flex ${collapsed ? "w-[76px]" : "w-[256px]"}`}
-        >
-          <DemoBrand compact={collapsed} />
-          <div
-            className={`flex items-center ${collapsed ? "justify-center" : "justify-between px-5"}`}
+        <div className="flex min-h-[calc(100vh-57px)]">
+          <aside
+            className={`hidden shrink-0 flex-col border-r border-[var(--demo-border)] bg-[var(--demo-sidebar)] transition-all duration-200 lg:flex ${collapsed ? "w-[76px]" : "w-[256px]"}`}
           >
-            {!collapsed && (
-              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                Operação
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => setCollapsed((value) => !value)}
-              aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-              className="grid size-9 place-items-center rounded-xl text-slate-500 transition hover:bg-[var(--demo-primary-soft)] hover:text-[var(--demo-primary)]"
+            <DemoBrand compact={collapsed} />
+            <div
+              className={`flex items-center ${collapsed ? "justify-center" : "justify-between px-5"}`}
             >
-              {collapsed ? (
-                <PanelLeftOpen className="size-4" />
-              ) : (
-                <PanelLeftClose className="size-4" />
+              {!collapsed && (
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  Operação
+                </span>
               )}
-            </button>
-          </div>
-          <nav className="mt-5 space-y-1 px-3" aria-label="Navegação da demonstração">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = screen === item.key;
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setScreen(item.key)}
-                  title={collapsed ? item.label : undefined}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${active ? "bg-[var(--demo-primary)] text-white shadow-sm" : "text-slate-600 hover:bg-[var(--demo-primary-soft)] hover:text-[var(--demo-primary)]"} ${collapsed ? "justify-center" : ""}`}
-                >
-                  <Icon className="size-[17px] shrink-0" />
-                  {!collapsed && <span>{item.label}</span>}
-                </button>
-              );
-            })}
-          </nav>
-          <div
-            className={`mt-auto border-t border-[var(--demo-border)] p-4 ${collapsed ? "flex justify-center" : ""}`}
-          >
-            {!collapsed ? (
-              <div className="rounded-2xl bg-[var(--demo-primary-soft)] p-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--demo-primary)]">
-                  Empresa conectada
-                </p>
-                <p className="mt-2 truncate text-sm font-bold">Orbe Tecnologia Ltda.</p>
-                <p className="mt-0.5 text-xs text-slate-500">Administradora · Ana Souza</p>
-              </div>
-            ) : (
-              <div className="grid size-9 place-items-center rounded-full bg-[var(--demo-primary)] text-xs font-bold text-white">
-                AS
-              </div>
-            )}
-          </div>
-        </aside>
-
-        {mobileOpen && (
-          <div
-            className="fixed inset-0 z-50 bg-slate-950/30 lg:hidden"
-            onClick={() => setMobileOpen(false)}
-          >
-            <aside
-              className="h-full w-[280px] bg-[var(--demo-sidebar)] p-4 shadow-2xl"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="flex items-center justify-between">
-                <DemoBrand />
-                <button
-                  type="button"
-                  onClick={() => setMobileOpen(false)}
-                  className="grid size-9 place-items-center rounded-xl text-slate-500 hover:bg-slate-100"
-                  aria-label="Fechar menu"
-                >
-                  <X className="size-5" />
-                </button>
-              </div>
-              <nav className="mt-8 space-y-1" aria-label="Navegação móvel">
-                {navItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => {
-                        setScreen(item.key);
-                        setMobileOpen(false);
-                      }}
-                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold ${screen === item.key ? "bg-[var(--demo-primary)] text-white" : "text-slate-600 hover:bg-[var(--demo-primary-soft)]"}`}
-                    >
-                      <Icon className="size-4" />
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </nav>
-            </aside>
-          </div>
-        )}
-
-        <section className="min-w-0 flex-1">
-          <header className="sticky top-[57px] z-20 flex items-center justify-between border-b border-[var(--demo-border)] bg-[var(--demo-canvas)]/90 px-4 py-4 backdrop-blur md:px-8">
-            <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => setMobileOpen(true)}
-                className="grid size-10 place-items-center rounded-xl border border-[var(--demo-border)] bg-white lg:hidden"
-                aria-label="Abrir menu"
+                onClick={() => setCollapsed((value) => !value)}
+                aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+                className="grid size-9 place-items-center rounded-xl text-slate-500 transition hover:bg-[var(--demo-primary-soft)] hover:text-[var(--demo-primary)]"
               >
-                <Menu className="size-5" />
+                {collapsed ? (
+                  <PanelLeftOpen className="size-4" />
+                ) : (
+                  <PanelLeftClose className="size-4" />
+                )}
               </button>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--demo-accent)]">
-                  {theme.eyebrow}
-                </p>
-                <h1 className="mt-1 text-lg font-bold tracking-tight md:text-xl">
-                  {screen === "login"
-                    ? "Acesso ao DJ PAY"
-                    : "Olá, Ana. Vamos organizar a operação?"}
-                </h1>
-              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setScreen("login")}
-              className="hidden items-center gap-2 rounded-xl border border-[var(--demo-border)] bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-[var(--demo-primary)] hover:text-[var(--demo-primary)] sm:flex"
+            <nav className="mt-5 space-y-1 px-3" aria-label="Navegação da demonstração">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active = screen === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setScreen(item.key)}
+                    title={collapsed ? item.label : undefined}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${active ? "bg-[var(--demo-primary)] text-white shadow-sm" : "text-slate-600 hover:bg-[var(--demo-primary-soft)] hover:text-[var(--demo-primary)]"} ${collapsed ? "justify-center" : ""}`}
+                  >
+                    <Icon className="size-[17px] shrink-0" />
+                    {!collapsed && <span>{item.label}</span>}
+                  </button>
+                );
+              })}
+            </nav>
+            <div
+              className={`mt-auto border-t border-[var(--demo-border)] p-4 ${collapsed ? "flex justify-center" : ""}`}
             >
-              <div className="grid size-7 place-items-center rounded-full bg-[var(--demo-primary-soft)] text-[10px] font-bold text-[var(--demo-primary)]">
-                AS
-              </div>
-              Ana Souza <ChevronDown className="size-4" />
-            </button>
-          </header>
+              {!collapsed ? (
+                <div className="rounded-2xl bg-[var(--demo-primary-soft)] p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--demo-primary)]">
+                    Empresa conectada
+                  </p>
+                  <p className="mt-2 truncate text-sm font-bold">Orbe Tecnologia Ltda.</p>
+                  <p className="mt-0.5 text-xs text-slate-500">Administradora · Ana Souza</p>
+                </div>
+              ) : (
+                <div className="grid size-9 place-items-center rounded-full bg-[var(--demo-primary)] text-xs font-bold text-white">
+                  AS
+                </div>
+              )}
+            </div>
+          </aside>
 
-          <div className="mx-auto max-w-[1240px] px-4 py-6 md:px-8 md:py-8">
-            <DemoSwitcher active={screen} onChange={setScreen} />
-            {screen === "login" ? (
-              <LoginScreen theme={theme} onBack={() => setScreen("overview")} />
-            ) : (
-              <DemoContent screen={screen} theme={theme} />
-            )}
+          {mobileOpen && (
+            <div
+              className="fixed inset-0 z-50 bg-slate-950/30 lg:hidden"
+              onClick={() => setMobileOpen(false)}
+            >
+              <aside
+                className="h-full w-[280px] bg-[var(--demo-sidebar)] p-4 shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="flex items-center justify-between">
+                  <DemoBrand />
+                  <button
+                    type="button"
+                    onClick={() => setMobileOpen(false)}
+                    className="grid size-9 place-items-center rounded-xl text-slate-500 hover:bg-slate-100"
+                    aria-label="Fechar menu"
+                  >
+                    <X className="size-5" />
+                  </button>
+                </div>
+                <nav className="mt-8 space-y-1" aria-label="Navegação móvel">
+                  {navItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => {
+                          setScreen(item.key);
+                          setMobileOpen(false);
+                        }}
+                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold ${screen === item.key ? "bg-[var(--demo-primary)] text-white" : "text-slate-600 hover:bg-[var(--demo-primary-soft)]"}`}
+                      >
+                        <Icon className="size-4" />
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </aside>
+            </div>
+          )}
+
+          <section className="min-w-0 flex-1">
+            <header className="sticky top-[57px] z-20 flex items-center justify-between border-b border-[var(--demo-border)] bg-[var(--demo-canvas)]/90 px-4 py-4 backdrop-blur md:px-8">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMobileOpen(true)}
+                  className="grid size-10 place-items-center rounded-xl border border-[var(--demo-border)] bg-white lg:hidden"
+                  aria-label="Abrir menu"
+                >
+                  <Menu className="size-5" />
+                </button>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--demo-accent)]">
+                    {theme.eyebrow}
+                  </p>
+                  <h1 className="mt-1 text-lg font-bold tracking-tight md:text-xl">
+                    {screen === "login"
+                      ? "Acesso ao DJ PAY"
+                      : "Olá, Ana. Vamos organizar a operação?"}
+                  </h1>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setScreen("login")}
+                className="hidden items-center gap-2 rounded-xl border border-[var(--demo-border)] bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-[var(--demo-primary)] hover:text-[var(--demo-primary)] sm:flex"
+              >
+                <div className="grid size-7 place-items-center rounded-full bg-[var(--demo-primary-soft)] text-[10px] font-bold text-[var(--demo-primary)]">
+                  AS
+                </div>
+                Ana Souza <ChevronDown className="size-4" />
+              </button>
+            </header>
+
+            <div className="mx-auto max-w-[1240px] px-4 py-6 md:px-8 md:py-8">
+              <DemoSwitcher active={screen} onChange={setScreen} />
+              {screen === "login" ? (
+                <LoginScreen theme={theme} onBack={() => setScreen("overview")} />
+              ) : (
+                <DemoContent screen={screen} theme={theme} />
+              )}
+            </div>
+          </section>
+        </div>
+        {notice && (
+          <div
+            role="status"
+            className="fixed bottom-5 right-5 z-[70] max-w-sm rounded-2xl bg-slate-950 px-5 py-4 text-sm font-semibold text-white shadow-2xl"
+          >
+            {notice}
           </div>
-        </section>
-      </div>
-    </main>
+        )}
+      </main>
+    </DemoActionContext.Provider>
   );
 }
 
@@ -458,6 +497,7 @@ function DemoContent({ screen, theme }: { screen: Exclude<ScreenKey, "login">; t
 }
 
 function OverviewScreen({ theme }: { theme: Theme }) {
+  const { navigate, notify } = useDemoActions();
   return (
     <div className="space-y-7">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
@@ -473,6 +513,7 @@ function OverviewScreen({ theme }: { theme: Theme }) {
         </div>
         <button
           type="button"
+          onClick={() => navigate("admission")}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--demo-primary)] px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:brightness-110"
         >
           <Plus className="size-4" /> Nova admissão
@@ -492,7 +533,12 @@ function OverviewScreen({ theme }: { theme: Theme }) {
               </p>
               <h3 className="mt-2 text-xl font-bold">Pendências que pedem um próximo passo</h3>
             </div>
-            <button type="button" className="rounded-xl p-2 text-slate-400 hover:bg-slate-50">
+            <button
+              type="button"
+              onClick={() => notify("Menu de pendências aberto para a demonstração.")}
+              aria-label="Opções das pendências"
+              className="rounded-xl p-2 text-slate-400 hover:bg-slate-50"
+            >
               <MoreHorizontal className="size-5" />
             </button>
           </div>
@@ -506,7 +552,7 @@ function OverviewScreen({ theme }: { theme: Theme }) {
                 "primary",
               ],
               ["2 contratos", "Próximos do encerramento contratual", "Revisar contratos", "accent"],
-            ].map(([title, detail, action, tone]) => (
+            ].map(([title, detail, action, tone], index) => (
               <div
                 key={title}
                 className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center"
@@ -522,6 +568,9 @@ function OverviewScreen({ theme }: { theme: Theme }) {
                 </div>
                 <button
                   type="button"
+                  onClick={() =>
+                    navigate(index === 0 ? "admission" : index === 1 ? "closing" : "termination")
+                  }
                   className="inline-flex items-center gap-1 text-sm font-bold text-[var(--demo-primary)] hover:underline"
                 >
                   {action}
@@ -563,6 +612,7 @@ function OverviewScreen({ theme }: { theme: Theme }) {
           </div>
           <button
             type="button"
+            onClick={() => navigate("closing")}
             className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-[var(--demo-primary)]"
           >
             Abrir fechamento <ArrowRight className="size-4" />
@@ -577,7 +627,11 @@ function OverviewScreen({ theme }: { theme: Theme }) {
               O que está previsto para a operação nos próximos dias.
             </p>
           </div>
-          <button type="button" className="text-sm font-bold text-[var(--demo-primary)]">
+          <button
+            type="button"
+            onClick={() => notify("Calendário demonstrativo: 3 eventos em setembro de 2026.")}
+            className="text-sm font-bold text-[var(--demo-primary)]"
+          >
             Ver calendário <ArrowRight className="ml-1 inline size-4" />
           </button>
         </div>
@@ -602,6 +656,11 @@ function OverviewScreen({ theme }: { theme: Theme }) {
 }
 
 function ProfessionalsScreen({ theme }: { theme: Theme }) {
+  const { navigate, notify } = useDemoActions();
+  const [query, setQuery] = useState("");
+  const visibleProfessionals = professionals.filter((person) =>
+    `${person.name} ${person.role} ${person.unit}`.toLowerCase().includes(query.toLowerCase()),
+  );
   return (
     <div className="space-y-7">
       <PageHeading
@@ -609,6 +668,7 @@ function ProfessionalsScreen({ theme }: { theme: Theme }) {
         title="Profissionais PJ"
         description="Acompanhe dados cadastrais, contratos, valores e próximos passos de cada prestador."
         action="Novo profissional"
+        onAction={() => navigate("admission")}
       />
       <div className="grid gap-4 sm:grid-cols-3">
         <MiniStat label="42 ativos" value="96%" detail="cadastros completos" />
@@ -624,11 +684,18 @@ function ProfessionalsScreen({ theme }: { theme: Theme }) {
             </p>
           </div>
           <div className="flex gap-2">
-            <div className="flex min-w-0 items-center gap-2 rounded-xl border border-[var(--demo-border)] px-3 py-2 text-sm text-slate-400">
-              <Search className="size-4" /> Buscar profissional
-            </div>
+            <label className="flex min-w-0 items-center gap-2 rounded-xl border border-[var(--demo-border)] px-3 py-2 text-sm text-slate-400">
+              <Search className="size-4" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Buscar profissional"
+                className="min-w-0 bg-transparent text-slate-700 outline-none"
+              />
+            </label>
             <button
               type="button"
+              onClick={() => notify("Filtro demonstrativo aplicado: profissionais ativos.")}
               className="rounded-xl border border-[var(--demo-border)] px-3 py-2 text-sm font-semibold text-slate-600"
             >
               Filtros
@@ -648,7 +715,7 @@ function ProfessionalsScreen({ theme }: { theme: Theme }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--demo-border)]">
-              {professionals.map((person) => (
+              {visibleProfessionals.map((person) => (
                 <tr key={person.name} className="hover:bg-slate-50/60">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
@@ -676,6 +743,8 @@ function ProfessionalsScreen({ theme }: { theme: Theme }) {
                   <td className="px-6 py-4">
                     <button
                       type="button"
+                      onClick={() => navigate("statement")}
+                      aria-label={`Abrir detalhes de ${person.name}`}
                       className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"
                     >
                       <MoreHorizontal className="size-4" />
@@ -687,8 +756,13 @@ function ProfessionalsScreen({ theme }: { theme: Theme }) {
           </table>
         </div>
         <div className="divide-y divide-[var(--demo-border)] md:hidden">
-          {professionals.map((person) => (
-            <div key={person.name} className="p-4">
+          {visibleProfessionals.map((person) => (
+            <button
+              type="button"
+              onClick={() => navigate("statement")}
+              key={person.name}
+              className="block w-full p-4 text-left"
+            >
               <div className="flex items-start gap-3">
                 <div className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--demo-primary-soft)] text-xs font-bold text-[var(--demo-primary)]">
                   {person.name
@@ -708,7 +782,7 @@ function ProfessionalsScreen({ theme }: { theme: Theme }) {
                   </div>
                 </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </section>
@@ -717,6 +791,8 @@ function ProfessionalsScreen({ theme }: { theme: Theme }) {
 }
 
 function AdmissionScreen({ theme }: { theme: Theme }) {
+  const { notify } = useDemoActions();
+  const [currentStep, setCurrentStep] = useState(1);
   const steps = ["Dados do profissional", "Documentos", "Contrato", "Conferência"];
   const checklist = [
     "Dados da pessoa física preenchidos",
@@ -731,13 +807,16 @@ function AdmissionScreen({ theme }: { theme: Theme }) {
         title="Nova admissão"
         description="Uma jornada clara para tirar o profissional do primeiro cadastro até a operação."
         action="Salvar rascunho"
+        onAction={() => notify("Rascunho da admissão salvo somente nesta demonstração.")}
       />
       <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
         <section className="rounded-3xl border border-[var(--demo-border)] bg-white p-5 md:p-7">
           <div className="flex flex-col gap-4 border-b border-[var(--demo-border)] pb-6 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-sm font-bold text-[var(--demo-primary)]">Etapa 2 de 4</p>
-              <h3 className="mt-1 text-xl font-bold">Documentos e contrato</h3>
+              <p className="text-sm font-bold text-[var(--demo-primary)]">
+                Etapa {currentStep + 1} de 4
+              </p>
+              <h3 className="mt-1 text-xl font-bold">{steps[currentStep]}</h3>
             </div>
             <span className="rounded-full bg-[var(--demo-primary-soft)] px-3 py-1 text-xs font-bold text-[var(--demo-primary)]">
               Em andamento
@@ -747,12 +826,12 @@ function AdmissionScreen({ theme }: { theme: Theme }) {
             {steps.map((step, index) => (
               <div key={step} className="flex items-center gap-2">
                 <div
-                  className={`grid size-8 place-items-center rounded-full text-xs font-bold ${index < 2 ? "bg-[var(--demo-primary)] text-white" : "bg-slate-100 text-slate-400"}`}
+                  className={`grid size-8 place-items-center rounded-full text-xs font-bold ${index <= currentStep ? "bg-[var(--demo-primary)] text-white" : "bg-slate-100 text-slate-400"}`}
                 >
-                  {index < 2 ? <Check className="size-4" /> : index + 1}
+                  {index < currentStep ? <Check className="size-4" /> : index + 1}
                 </div>
                 <span
-                  className={`text-xs font-semibold ${index === 1 ? "text-[var(--demo-primary)]" : "text-slate-500"}`}
+                  className={`text-xs font-semibold ${index === currentStep ? "text-[var(--demo-primary)]" : "text-slate-500"}`}
                 >
                   {step}
                 </span>
@@ -776,6 +855,9 @@ function AdmissionScreen({ theme }: { theme: Theme }) {
               </div>
               <button
                 type="button"
+                onClick={() =>
+                  notify("Contrato demonstrativo visualizado. Nenhum documento real foi aberto.")
+                }
                 className="ml-auto rounded-xl border border-[var(--demo-border)] px-3 py-2 text-xs font-bold"
               >
                 Visualizar
@@ -785,15 +867,21 @@ function AdmissionScreen({ theme }: { theme: Theme }) {
           <div className="mt-8 flex justify-end gap-2">
             <button
               type="button"
+              onClick={() => setCurrentStep((step) => Math.max(0, step - 1))}
+              disabled={currentStep === 0}
               className="rounded-xl border border-[var(--demo-border)] px-4 py-3 text-sm font-semibold text-slate-600"
             >
               Voltar
             </button>
             <button
               type="button"
+              onClick={() => {
+                if (currentStep === 3) notify("Admissão demonstrativa concluída com sucesso.");
+                else setCurrentStep((step) => Math.min(3, step + 1));
+              }}
               className="rounded-xl bg-[var(--demo-primary)] px-4 py-3 text-sm font-bold text-white"
             >
-              Continuar
+              {currentStep === 3 ? "Concluir demonstração" : "Continuar"}
             </button>
           </div>
         </section>
@@ -805,11 +893,13 @@ function AdmissionScreen({ theme }: { theme: Theme }) {
             {checklist.map((item, index) => (
               <div key={item} className="flex gap-3">
                 <div
-                  className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full ${index < 2 ? "bg-[var(--demo-accent)] text-white" : "border border-white/30 text-white/30"}`}
+                  className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full ${index <= currentStep ? "bg-[var(--demo-accent)] text-white" : "border border-white/30 text-white/30"}`}
                 >
-                  {index < 2 && <Check className="size-3" />}
+                  {index <= currentStep && <Check className="size-3" />}
                 </div>
-                <p className={`text-sm leading-5 ${index < 2 ? "text-white" : "text-white/55"}`}>
+                <p
+                  className={`text-sm leading-5 ${index <= currentStep ? "text-white" : "text-white/55"}`}
+                >
                   {item}
                 </p>
               </div>
@@ -817,6 +907,13 @@ function AdmissionScreen({ theme }: { theme: Theme }) {
           </div>
           <button
             type="button"
+            onClick={() => {
+              downloadDemoFile(
+                "kit-admissional-demo.txt",
+                "DJ PAY - Kit admissional demonstrativo\nEduardo Martins\nCNPJ 28.394.721/0001-09\nContrato de prestação - versão 1.0",
+              );
+              notify("Kit admissional demonstrativo gerado.");
+            }}
             className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm font-bold text-white hover:bg-white/15"
           >
             Gerar kit admissional <ArrowRight className="size-4" />
@@ -828,6 +925,14 @@ function AdmissionScreen({ theme }: { theme: Theme }) {
 }
 
 function VacationScreen({ theme }: { theme: Theme }) {
+  const { notify } = useDemoActions();
+  const [showAll, setShowAll] = useState(false);
+  const vacationRows = [
+    ["12/08/2026", "Férias gozadas", "6 dias", "Aprovado"],
+    ["20/07/2026", "Programação de férias", "16 dias", "Agendado"],
+    ["10/06/2026", "Ponte de feriado", "-1 dia", "Ajuste manual"],
+    ["02/09/2025", "Abertura do período", "30 dias", "Concluído"],
+  ];
   return (
     <div className="space-y-7">
       <PageHeading
@@ -835,6 +940,7 @@ function VacationScreen({ theme }: { theme: Theme }) {
         title="Férias e períodos"
         description="Acompanhe períodos, saldos e lançamentos manuais com clareza sobre a condição contratual."
         action="Novo lançamento"
+        onAction={() => notify("Novo lançamento demonstrativo iniciado.")}
       />
       <div className="grid gap-4 sm:grid-cols-3">
         <MiniStat label="Saldo disponível" value="87 dias" detail="3 períodos ativos" />
@@ -877,16 +983,16 @@ function VacationScreen({ theme }: { theme: Theme }) {
         <div className="mt-7 border-t border-[var(--demo-border)] pt-6">
           <div className="flex items-center justify-between">
             <h4 className="font-bold">Histórico de lançamentos</h4>
-            <button type="button" className="text-sm font-bold text-[var(--demo-primary)]">
-              Ver tudo
+            <button
+              type="button"
+              onClick={() => setShowAll((value) => !value)}
+              className="text-sm font-bold text-[var(--demo-primary)]"
+            >
+              {showAll ? "Resumir" : "Ver tudo"}
             </button>
           </div>
           <div className="mt-4 divide-y divide-[var(--demo-border)]">
-            {[
-              ["12/08/2026", "Férias gozadas", "6 dias", "Aprovado"],
-              ["20/07/2026", "Programação de férias", "16 dias", "Agendado"],
-              ["10/06/2026", "Ponte de feriado", "-1 dia", "Ajuste manual"],
-            ].map((row) => (
+            {(showAll ? vacationRows : vacationRows.slice(0, 3)).map((row) => (
               <div key={row[0]} className="flex flex-wrap items-center gap-3 py-3 text-sm">
                 <span className="w-24 text-slate-500">{row[0]}</span>
                 <span className="flex-1 font-semibold">{row[1]}</span>
@@ -904,6 +1010,7 @@ function VacationScreen({ theme }: { theme: Theme }) {
 }
 
 function ClosingScreen({ theme }: { theme: Theme }) {
+  const { notify } = useDemoActions();
   return (
     <div className="space-y-7">
       <PageHeading
@@ -911,6 +1018,13 @@ function ClosingScreen({ theme }: { theme: Theme }) {
         title="Fechamento mensal"
         description="Confira o ciclo de setembro antes de enviar pagamentos e acompanhar notas fiscais."
         action="Exportar lote"
+        onAction={() => {
+          downloadDemoFile(
+            "lote-bancario-demo.txt",
+            "DJPAY|DEMONSTRACAO|09/2026\nORBE|42|48622000\nARQUIVO SEM VALIDADE BANCARIA",
+          );
+          notify("Lote TXT demonstrativo exportado sem dados bancários reais.");
+        }}
       />
       <div className="grid gap-4 sm:grid-cols-4">
         {[
@@ -970,6 +1084,7 @@ function StatementScreen({ theme }: { theme: Theme }) {
         title="Demonstrativo de pagamento"
         description="Memória de cálculo pronta para conferência, impressão e emissão da nota fiscal."
         action="Imprimir demonstrativo"
+        onAction={() => window.print()}
       />
       <section className="rounded-3xl border border-[var(--demo-border)] bg-white p-6 md:p-8">
         <div className="flex flex-col justify-between gap-5 border-b border-[var(--demo-border)] pb-6 sm:flex-row">
@@ -1031,6 +1146,7 @@ function StatementScreen({ theme }: { theme: Theme }) {
 }
 
 function TerminationScreen({ theme }: { theme: Theme }) {
+  const { notify } = useDemoActions();
   return (
     <div className="space-y-7">
       <PageHeading
@@ -1038,6 +1154,7 @@ function TerminationScreen({ theme }: { theme: Theme }) {
         title="Encerramento de Eduardo Martins"
         description="Consolide dias trabalhados, saldos e documentos antes de finalizar a relação contratual."
         action="Salvar análise"
+        onAction={() => notify("Análise de encerramento salva somente nesta demonstração.")}
       />
       <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
         <section className="rounded-3xl border border-[var(--demo-border)] bg-white p-5 md:p-7">
@@ -1097,6 +1214,13 @@ function TerminationScreen({ theme }: { theme: Theme }) {
             </div>
             <button
               type="button"
+              onClick={() => {
+                downloadDemoFile(
+                  "distrato-demonstrativo.txt",
+                  "DJ PAY - DISTRATO DEMONSTRATIVO\nEduardo Martins\nData prevista: 30/09/2026\nTotal estimado: R$ 18.533,34\nSEM VALIDADE JURIDICA",
+                );
+                notify("Distrato demonstrativo gerado.");
+              }}
               className="mt-5 w-full rounded-xl border border-[var(--demo-border)] px-3 py-2.5 text-sm font-bold text-[var(--demo-primary)]"
             >
               Gerar distrato
@@ -1116,6 +1240,7 @@ function TerminationScreen({ theme }: { theme: Theme }) {
 }
 
 function LoginScreen({ theme, onBack }: { theme: Theme; onBack: () => void }) {
+  const { notify } = useDemoActions();
   return (
     <div className="flex min-h-[620px] items-center justify-center">
       <div className="grid w-full max-w-4xl overflow-hidden rounded-[32px] border border-[var(--demo-border)] bg-white shadow-[0_24px_80px_rgba(16,42,67,0.12)] md:grid-cols-2">
@@ -1157,6 +1282,10 @@ function LoginScreen({ theme, onBack }: { theme: Theme; onBack: () => void }) {
             <Field label="Senha" value="••••••••••" />
             <button
               type="button"
+              onClick={() => {
+                notify("Login demonstrativo realizado. Nenhuma autenticação real foi executada.");
+                onBack();
+              }}
               className="w-full rounded-xl bg-[var(--demo-primary)] px-4 py-3.5 text-sm font-bold text-white"
             >
               Entrar no DJ PAY
@@ -1180,11 +1309,13 @@ function PageHeading({
   title,
   description,
   action,
+  onAction,
 }: {
   eyebrow: string;
   title: string;
   description: string;
   action: string;
+  onAction?: () => void;
 }) {
   return (
     <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
@@ -1197,6 +1328,7 @@ function PageHeading({
       </div>
       <button
         type="button"
+        onClick={onAction}
         className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--demo-primary)] px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:brightness-110"
       >
         {action}
@@ -1283,9 +1415,11 @@ function Field({ label, value }: { label: string; value: string }) {
   return (
     <label className="block">
       <span className="text-xs font-bold uppercase tracking-[0.1em] text-slate-500">{label}</span>
-      <div className="mt-2 rounded-xl border border-[var(--demo-border)] bg-slate-50 px-3.5 py-3 text-sm font-semibold text-slate-700">
-        {value}
-      </div>
+      <input
+        type={label.toLowerCase().includes("senha") ? "password" : "text"}
+        defaultValue={value}
+        className="mt-2 block w-full rounded-xl border border-[var(--demo-border)] bg-slate-50 px-3.5 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-[var(--demo-primary)] focus:ring-2 focus:ring-[var(--demo-primary-soft)]"
+      />
     </label>
   );
 }

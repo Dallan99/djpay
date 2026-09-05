@@ -131,7 +131,7 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 const navigationItems = [
-  { label: "Dashboard", icon: Sparkles, to: "/" },
+  { label: "Dashboard", icon: Sparkles, to: "/demo/corporativo" },
   { label: "Profissionais", icon: User, to: "/" },
   { label: "Pagamentos", icon: ShoppingCart, to: "/pagamentos" },
   { label: "Notas Fiscais", icon: FileText, to: "/notas-fiscais" },

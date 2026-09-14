@@ -110,20 +110,6 @@ const PERIODICITY_LABELS: Record<string, string> = {
 
 const THIRTEENTH_CONFIGURATION_PREFIX = "[13th_note_config]";
 const VACATION_CONFIGURATION_PREFIX = "[vacation_config]";
-const DEMO_PROFESSIONALS_KEY = "dj-pay-demo-professionals";
-
-function getDemoBenefitsKey(professionalId: string) {
-  return `dj-pay-demo-benefits:${professionalId}`;
-}
-
-function readDemoData<Value>(key: string, fallback: Value): Value {
-  try {
-    const stored = window.localStorage.getItem(key);
-    return stored ? (JSON.parse(stored) as Value) : fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 function getInstallmentCount(periodicity: string, customCalendar = "") {
   if (periodicity === "anual") return 1;
@@ -287,7 +273,6 @@ function ProfessionalDetailPage() {
   const [benefitError, setBenefitError] = useState("");
   const [benefitForm, setBenefitForm] = useState<BenefitForm>(initialBenefitForm);
   const [editingBenefitId, setEditingBenefitId] = useState<string | null>(null);
-  const [isDemoMode, setIsDemoMode] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -301,19 +286,10 @@ function ProfessionalDetailPage() {
 
       if (!session || !companyId) {
         if (active) {
-          const demoProfessionals = readDemoData<Professional[]>(DEMO_PROFESSIONALS_KEY, []);
-          const demoProfessional = demoProfessionals.find((item) => item.id === id) ?? null;
-          setIsDemoMode(true);
-          setProfessional(
-            demoProfessional
-              ? { ...demoProfessional, observacoes: demoProfessional.observacoes ?? null }
-              : null,
-          );
-          setBenefits(readDemoData<ContractBenefit[]>(getDemoBenefitsKey(id), []));
+          setProfessional(null);
+          setBenefits([]);
           setIsBenefitsLoading(false);
-          setErrorMessage(
-            demoProfessional ? "" : "Profissional demonstrativo não encontrado neste navegador.",
-          );
+          setErrorMessage("Sua sessão expirou. Entre novamente para acessar este profissional.");
           setIsLoading(false);
         }
         return;
@@ -369,11 +345,6 @@ function ProfessionalDetailPage() {
 
   const loadBenefits = async () => {
     if (!professional) return;
-
-    if (isDemoMode) {
-      setBenefits(readDemoData<ContractBenefit[]>(getDemoBenefitsKey(professional.id), []));
-      return;
-    }
 
     const { data } = await (supabase as any)
       .from("contractor_financial_benefits")
@@ -501,27 +472,6 @@ function ProfessionalDetailPage() {
     };
 
     setIsSavingBenefit(true);
-    if (isDemoMode) {
-      const demoBenefit: ContractBenefit = {
-        id: editingBenefitId ?? crypto.randomUUID(),
-        ...benefitData,
-        status: benefits.find((item) => item.id === editingBenefitId)?.status ?? "active",
-      };
-      const updatedBenefits = editingBenefitId
-        ? benefits.map((item) => (item.id === editingBenefitId ? demoBenefit : item))
-        : [...benefits, demoBenefit];
-      window.localStorage.setItem(
-        getDemoBenefitsKey(professional.id),
-        JSON.stringify(updatedBenefits),
-      );
-      setBenefits(updatedBenefits);
-      setIsSavingBenefit(false);
-      setBenefitForm(initialBenefitForm);
-      setEditingBenefitId(null);
-      setIsBenefitDialogOpen(false);
-      return;
-    }
-
     const query = (supabase as any).from("contractor_financial_benefits");
     const { error } = editingBenefitId
       ? await query
@@ -554,18 +504,6 @@ function ProfessionalDetailPage() {
     if (!professional) return;
 
     const isActive = benefit.status !== "inactive";
-    if (isDemoMode) {
-      const updatedBenefits = benefits.map((item) =>
-        item.id === benefit.id ? { ...item, status: isActive ? "inactive" : "active" } : item,
-      );
-      window.localStorage.setItem(
-        getDemoBenefitsKey(professional.id),
-        JSON.stringify(updatedBenefits),
-      );
-      setBenefits(updatedBenefits);
-      return;
-    }
-
     const { error } = await (supabase as any)
       .from("contractor_financial_benefits")
       .update({ status: isActive ? "inactive" : "active" })
@@ -646,14 +584,6 @@ function ProfessionalDetailPage() {
             Voltar para profissionais
           </Link>
         </Button>
-
-        {isDemoMode && (
-          <div className="mt-5 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground">
-            <span className="font-semibold text-primary">Modo demonstração.</span> Este perfil e
-            suas condições comerciais ficam salvos somente neste navegador até o acesso com uma
-            conta da empresa.
-          </div>
-        )}
 
         <section className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-card/75 shadow-lg shadow-black/5">
           <div className="border-b border-border/60 bg-gradient-to-br from-primary/10 via-card to-muted/30 p-6 sm:p-8">

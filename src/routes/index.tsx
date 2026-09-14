@@ -480,22 +480,6 @@ const initialProfessionalForm: ProfessionalForm = {
   status: "active",
 };
 
-const DEMO_COMPANY_ID = "demo-company";
-const DEMO_PROFESSIONALS_KEY = "dj-pay-demo-professionals";
-
-function loadDemoProfessionals(): Professional[] {
-  try {
-    const saved = window.localStorage.getItem(DEMO_PROFESSIONALS_KEY);
-    return saved ? (JSON.parse(saved) as Professional[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveDemoProfessionals(professionals: Professional[]) {
-  window.localStorage.setItem(DEMO_PROFESSIONALS_KEY, JSON.stringify(professionals));
-}
-
 function ProfessionalsPage() {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -504,7 +488,6 @@ function ProfessionalsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [companyId, setCompanyId] = useState("");
-  const [isDemoMode, setIsDemoMode] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState("");
@@ -520,10 +503,8 @@ function ProfessionalsPage() {
       const session = await loadSessionContext();
       if (!session) {
         if (active) {
-          setIsDemoMode(true);
-          setCompanyId(DEMO_COMPANY_ID);
-          setProfessionals(loadDemoProfessionals());
-          setErrorMessage("");
+          setProfessionals([]);
+          setErrorMessage("Sua sessão expirou. Entre novamente para acessar os dados da empresa.");
           setIsLoading(false);
         }
         return;
@@ -651,22 +632,6 @@ function ProfessionalsPage() {
       status: formData.status,
     };
 
-    if (isDemoMode) {
-      const demoProfessional: Professional = {
-        id: crypto.randomUUID(),
-        company_id: DEMO_COMPANY_ID,
-        ...professionalPayload,
-      };
-      const updated = [...professionals, demoProfessional].sort((first, second) =>
-        first.nome_completo.localeCompare(second.nome_completo, "pt-BR"),
-      );
-      setProfessionals(updated);
-      saveDemoProfessionals(updated);
-      setFormData(initialProfessionalForm);
-      setIsCreateDialogOpen(false);
-      return;
-    }
-
     const session = await loadSessionContext();
     const authenticatedCompanyId = session?.companyId ?? "";
 
@@ -753,13 +718,6 @@ function ProfessionalsPage() {
             </Button>
           </div>
         </div>
-
-        {isDemoMode && (
-          <div className="mb-5 rounded-2xl border border-accent/35 bg-accent/10 px-4 py-3 text-sm text-foreground">
-            <strong>Modo de demonstração:</strong> os profissionais cadastrados ficam salvos somente
-            neste navegador e não alteram o banco real.
-          </div>
-        )}
 
         <section className="overflow-hidden rounded-2xl border border-border/60 bg-card/75 shadow-lg shadow-black/5">
           <div className="border-b border-border/60 bg-muted/20 p-5 sm:p-6">

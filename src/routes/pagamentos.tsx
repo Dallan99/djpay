@@ -74,9 +74,6 @@ const PAYMENT_TYPE_OPTIONS = [
   { value: "other", label: "Outros" },
 ] as const;
 
-const DEMO_PROFESSIONALS_KEY = "dj-pay-demo-professionals";
-const DEMO_PAYMENTS_KEY = "dj-pay-demo-payments";
-
 type PaymentForm = {
   contractor_id: string;
   competencia: string;
@@ -94,15 +91,6 @@ const initialPaymentForm: PaymentForm = {
   valor: "",
   vencimento: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
 };
-
-function readDemoData<Value>(key: string, fallback: Value): Value {
-  try {
-    const stored = window.localStorage.getItem(key);
-    return stored ? (JSON.parse(stored) as Value) : fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 const money = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -132,7 +120,6 @@ function PaymentsPage() {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusUpdateError, setStatusUpdateError] = useState("");
-  const [isDemoMode, setIsDemoMode] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isSavingPayment, setIsSavingPayment] = useState(false);
@@ -151,14 +138,9 @@ function PaymentsPage() {
 
       if (!session || !companyId) {
         if (active) {
-          const demoProfessionals = readDemoData<Array<{ id: string; nome_completo: string }>>(
-            DEMO_PROFESSIONALS_KEY,
-            [],
-          );
-          setIsDemoMode(true);
-          setCompanyId("demo-company");
-          setContractors(demoProfessionals);
-          setPayments(readDemoData<Payment[]>(DEMO_PAYMENTS_KEY, []));
+          setContractors([]);
+          setPayments([]);
+          setErrorMessage("Sua sessão expirou. Entre novamente para acessar os pagamentos.");
           setIsLoading(false);
         }
         return;
@@ -216,22 +198,6 @@ function PaymentsPage() {
   const handleStatusChange = async (payment: Payment, status: string) => {
     setStatusUpdateError("");
     setIsUpdatingStatus(true);
-
-    if (isDemoMode) {
-      const updatedPayment = {
-        ...payment,
-        status,
-        data_pagamento: status === "paid" ? new Date().toISOString().slice(0, 10) : null,
-      };
-      const updatedPayments = payments.map((item) =>
-        item.id === payment.id ? updatedPayment : item,
-      );
-      window.localStorage.setItem(DEMO_PAYMENTS_KEY, JSON.stringify(updatedPayments));
-      setPayments(updatedPayments);
-      setSelectedPayment(updatedPayment);
-      setIsUpdatingStatus(false);
-      return;
-    }
 
     const session = await loadSessionContext();
     const companyId = session?.companyId ?? "";
@@ -296,17 +262,6 @@ function PaymentsPage() {
     };
 
     setIsSavingPayment(true);
-    if (isDemoMode) {
-      const created: Payment = { id: crypto.randomUUID(), ...paymentData };
-      const updatedPayments = [...payments, created];
-      window.localStorage.setItem(DEMO_PAYMENTS_KEY, JSON.stringify(updatedPayments));
-      setPayments(updatedPayments);
-      setPaymentForm(initialPaymentForm);
-      setIsPaymentDialogOpen(false);
-      setIsSavingPayment(false);
-      return;
-    }
-
     const { data, error } = await supabase
       .from("payments")
       .insert(paymentData)
@@ -417,13 +372,6 @@ function PaymentsPage() {
             </div>
           </div>
         </div>
-
-        {isDemoMode && (
-          <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground">
-            <span className="font-semibold text-primary">Modo demonstração.</span> Crie pagamentos e
-            altere seus status; os dados ficam salvos neste navegador.
-          </div>
-        )}
 
         <section className="overflow-hidden rounded-2xl border border-border/60 bg-card/75 shadow-lg shadow-black/5">
           <div className="border-b border-border/60 bg-muted/20 p-5 sm:p-6">

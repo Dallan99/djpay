@@ -9,7 +9,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { FileText, Menu, ShieldCheck, ShoppingCart, Sparkles, User, X } from "lucide-react";
+import { FileText, Menu, ShoppingCart, User, X } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -131,11 +131,9 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 const navigationItems = [
-  { label: "Dashboard", icon: Sparkles, to: "/demo/corporativo" },
   { label: "Profissionais", icon: User, to: "/" },
   { label: "Pagamentos", icon: ShoppingCart, to: "/pagamentos" },
   { label: "Notas Fiscais", icon: FileText, to: "/notas-fiscais" },
-  { label: "Configurações", icon: ShieldCheck, to: "/" },
 ] as const;
 
 type AccountSummary = {
@@ -235,10 +233,13 @@ function Navigation({
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeItem, setActiveItem] = useState("Profissionais");
   const [account, setAccount] = useState<AccountSummary>(initialAccount);
+  const [isSessionLoading, setIsSessionLoading] = useState(true);
+  const [hasSession, setHasSession] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -248,8 +249,15 @@ function RootComponent() {
 
       if (!session) {
         setAccount({ ...initialAccount, name: "Sessão não identificada" });
+        setHasSession(false);
+        setIsSessionLoading(false);
+        if (pathname !== "/login") {
+          await router.navigate({ to: "/login", replace: true });
+        }
         return;
       }
+
+      setHasSession(true);
 
       const { data: companyRow } = await supabase
         .from("companies")
@@ -264,22 +272,36 @@ function RootComponent() {
         name: session.nome || "Usuário DJ PAY",
         email: session.email,
       });
+      setIsSessionLoading(false);
     });
 
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [pathname, router]);
 
   const handleNavigation = (item: string) => {
     setActiveItem(item);
     setMobileOpen(false);
   };
 
-  if (pathname.startsWith("/demo/") || pathname === "/login") {
+  if (pathname === "/login") {
     return (
       <QueryClientProvider client={queryClient}>
         <Outlet />
+      </QueryClientProvider>
+    );
+  }
+
+  if (isSessionLoading || !hasSession) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <main className="grid min-h-screen place-items-center bg-background">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <img src="/branding/dj-pay-symbol.png" alt="DJ PAY" className="size-16 animate-pulse" />
+            <p className="text-sm text-muted-foreground">Verificando acesso seguro...</p>
+          </div>
+        </main>
       </QueryClientProvider>
     );
   }

@@ -46,7 +46,7 @@ function CompaniesPage() {
         const { data: totals, error: totalsError } = await supabase.rpc("dj_pay_central_financial_summary" as never, { p_company_id: null } as never);
         if (!mounted) return;
         if (totalsError) setFinanceError("Não foi possível carregar os indicadores financeiros.");
-        else setSummaries((totals ?? []) as FinancialSummary[]);
+        else setSummaries((totals ?? []) as unknown as FinancialSummary[]);
       } catch {
         if (mounted) setMessage("Não foi possível carregar as empresas. Tente atualizar a página.");
       } finally {
@@ -93,6 +93,7 @@ function CompaniesPage() {
       }).select("id,nome,cnpj,status,email,telefone").single();
       if (error) throw error;
       setCompanies(current => [...current, data].sort((a,b) => a.nome.localeCompare(b.nome,"pt-BR")));
+      setSummaries(current => [...current, { company_id: data.id, payments_count: 0, payments_total: 0, invoices_count: 0, invoices_total: 0 }]);
       setName(""); setCnpj(""); setEmail(""); setPhone("");
       setMessage("Empresa cadastrada com sucesso.");
     } catch {

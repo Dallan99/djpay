@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as EmpresasRouteImport } from './routes/empresas'
+import { Route as ConfiguracoesEmpresaRouteImport } from './routes/configuracoes-empresa'
 import { Route as NotasFiscaisRouteImport } from './routes/notas-fiscais'
 import { Route as PagamentosRouteImport } from './routes/pagamentos'
 import { Route as ProfissionaisIdRouteImport } from './routes/profissionais.$id'
@@ -19,6 +20,11 @@ import { Route as ProfissionaisIdRouteImport } from './routes/profissionais.$id'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfiguracoesEmpresaRoute = ConfiguracoesEmpresaRouteImport.update({
+  id: '/configuracoes-empresa',
+  path: '/configuracoes-empresa',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmpresasRoute = EmpresasRouteImport.update({
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/empresas': typeof EmpresasRoute
+  '/configuracoes-empresa': typeof ConfiguracoesEmpresaRoute
   '/notas-fiscais': typeof NotasFiscaisRoute
   '/pagamentos': typeof PagamentosRoute
   '/profissionais/$id': typeof ProfissionaisIdRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/empresas': typeof EmpresasRoute
+  '/configuracoes-empresa': typeof ConfiguracoesEmpresaRoute
   '/notas-fiscais': typeof NotasFiscaisRoute
   '/pagamentos': typeof PagamentosRoute
   '/profissionais/$id': typeof ProfissionaisIdRoute
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/empresas': typeof EmpresasRoute
+  '/configuracoes-empresa': typeof ConfiguracoesEmpresaRoute
   '/notas-fiscais': typeof NotasFiscaisRoute
   '/pagamentos': typeof PagamentosRoute
   '/profissionais/$id': typeof ProfissionaisIdRoute
@@ -75,14 +84,15 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/login' | '/empresas' | '/notas-fiscais' | '/pagamentos' | '/profissionais/$id'
+    '/' | '/login' | '/empresas' | '/configuracoes-empresa' | '/notas-fiscais' | '/pagamentos' | '/profissionais/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/empresas' | '/notas-fiscais' | '/pagamentos' | '/profissionais/$id'
+  to: '/' | '/login' | '/empresas' | '/configuracoes-empresa' | '/notas-fiscais' | '/pagamentos' | '/profissionais/$id'
   id:
     | '__root__'
     | '/'
     | '/login'
     | '/empresas'
+    | '/configuracoes-empresa'
     | '/notas-fiscais'
     | '/pagamentos'
     | '/profissionais/$id'
@@ -92,6 +102,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   EmpresasRoute: typeof EmpresasRoute
+  ConfiguracoesEmpresaRoute: typeof ConfiguracoesEmpresaRoute
   NotasFiscaisRoute: typeof NotasFiscaisRoute
   PagamentosRoute: typeof PagamentosRoute
   ProfissionaisIdRoute: typeof ProfissionaisIdRoute
@@ -111,6 +122,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configuracoes-empresa': {
+      id: '/configuracoes-empresa'
+      path: '/configuracoes-empresa'
+      fullPath: '/configuracoes-empresa'
+      preLoaderRoute: typeof ConfiguracoesEmpresaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/empresas': {
@@ -148,6 +166,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   EmpresasRoute: EmpresasRoute,
+  ConfiguracoesEmpresaRoute: ConfiguracoesEmpresaRoute,
   NotasFiscaisRoute: NotasFiscaisRoute,
   PagamentosRoute: PagamentosRoute,
   ProfissionaisIdRoute: ProfissionaisIdRoute,

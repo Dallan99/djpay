@@ -263,7 +263,7 @@ function RootComponent() {
       }
 
       setHasSession(true);
-      const { data: centralAdmin, error: centralError } = await supabase.rpc("dj_pay_is_central_admin");
+      const { data: centralAdmin, error: centralError } = await supabase.rpc("dj_pay_is_central_admin" as never);
       if (!mounted) return;
       setIsCentralAdmin(!centralError && centralAdmin === true);
 

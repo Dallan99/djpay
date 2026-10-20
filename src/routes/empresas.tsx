@@ -49,6 +49,16 @@ function CompaniesPage() {
     return () => { mounted = false; };
   }, []);
 
+  const isValidCnpj = (value: string): boolean => {
+    if (!/^\\d{14}$/.test(value) || /^(\\d)\\1{13}$/.test(value)) return false;
+    const check = (length: number): number => {
+      const weights = length === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+      const remainder = weights.reduce((sum, weight, i) => sum + Number(value[i]) * weight, 0) % 11;
+      return remainder < 2 ? 0 : 11 - remainder;
+    };
+    return Number(value[12]) === check(12) && Number(value[13]) === check(13);
+  };
+
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (saving) return;

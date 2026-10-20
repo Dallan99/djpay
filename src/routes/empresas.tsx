@@ -50,7 +50,7 @@ function CompaniesPage() {
   }, []);
 
   const isValidCnpj = (value: string): boolean => {
-    if (!/^\\d{14}$/.test(value) || /^(\\d)\\1{13}$/.test(value)) return false;
+    if (!/^\d{14}$/.test(value) || /^(\d)\1{13}$/.test(value)) return false;
     const check = (length: number): number => {
       const weights = length === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
       const remainder = weights.reduce((sum, weight, i) => sum + Number(value[i]) * weight, 0) % 11;

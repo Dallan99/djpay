@@ -12,11 +12,15 @@ export const Route = createFileRoute("/empresas")({
   component: CompaniesPage,
 });
 
+type FinancialSummary = { company_id: string; payments_count: number; payments_total: number; invoices_count: number; invoices_total: number };
+
 type Company = { id: string; nome: string; cnpj: string | null; status: string; email: string | null; telefone: string | null };
 
 function CompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedId, setSelectedId] = useState("");
+  const [summaries, setSummaries] = useState<FinancialSummary[]>([]);
+  const [financeError, setFinanceError] = useState("");
   const [authorized, setAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -39,6 +43,10 @@ function CompaniesPage() {
           .select("id,nome,cnpj,status,email,telefone").order("nome");
         if (error) throw error;
         if (mounted) setCompanies(data ?? []);
+        const { data: totals, error: totalsError } = await supabase.rpc("dj_pay_central_financial_summary" as never, { p_company_id: null } as never);
+        if (!mounted) return;
+        if (totalsError) setFinanceError("Não foi possível carregar os indicadores financeiros.");
+        else setSummaries((totals ?? []) as FinancialSummary[]);
       } catch {
         if (mounted) setMessage("Não foi possível carregar as empresas. Tente atualizar a página.");
       } finally {
@@ -97,6 +105,15 @@ function CompaniesPage() {
   if (loading) return <main className="p-6 text-muted-foreground">Carregando empresas...</main>;
   if (!authorized) return <main className="p-6" role="alert">Acesso restrito à administração central do DJ PAY.</main>;
 
+  const filteredSummaries = summaries.filter(item => !selectedId || item.company_id === selectedId);
+  const totals = filteredSummaries.reduce((acc, item) => ({
+    payments: acc.payments + Number(item.payments_count),
+    amount: acc.amount + Number(item.payments_total),
+    invoices: acc.invoices + Number(item.invoices_count),
+    invoiceAmount: acc.invoiceAmount + Number(item.invoices_total),
+  }), { payments: 0, amount: 0, invoices: 0, invoiceAmount: 0 });
+  const brl = (amount: number) => amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
   return <main className="mx-auto w-full max-w-6xl space-y-7 p-4 pb-14 sm:p-8">
     <div>
       <p className="text-sm font-semibold uppercase tracking-wider text-primary">Administração central</p>
@@ -124,6 +141,24 @@ function CompaniesPage() {
         {companies.map(company => <option key={company.id} value={company.id}>{company.nome} — {company.cnpj || "CNPJ não informado"}</option>)}
       </select>
       <p className="text-xs text-muted-foreground">Esta seleção filtra somente o cadastro de empresas. O financeiro permanece vinculado à empresa original da conta.</p>
+    </section>
+    <section className="space-y-3" aria-label="Resumo financeiro por empresa">
+      <h2 className="text-xl font-semibold">Resumo financeiro {selectedId ? "da empresa" : "consolidado"}</h2>
+      <p className="text-sm text-muted-foreground">Consulta somente leitura. Totais dos registros existentes, independentemente do status de pagamento ou aprovação.</p>
+      {financeError ? <p role="alert" className="text-sm text-destructive">{financeError}</p> :
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            ["Pagamentos registrados", String(totals.payments)],
+            ["Valor dos pagamentos", brl(totals.amount)],
+            ["Notas fiscais registradas", String(totals.invoices)],
+            ["Valor das notas", brl(totals.invoiceAmount)],
+          ].map(([label, value]) =>
+            <article key={label} className="rounded-xl border bg-card p-4">
+              <p className="text-sm text-muted-foreground">{label}</p>
+              <p className="mt-2 text-2xl font-semibold break-words">{value}</p>
+            </article>
+          )}
+        </div>}
     </section>
     <section className="space-y-3" aria-label="Empresas cadastradas">
       <h2 className="text-xl font-semibold">Empresas cadastradas <span className="text-muted-foreground">({companies.length})</span></h2>

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { loadSessionContext } from "@/lib/session";
 
 export const Route = createFileRoute("/empresas")({
-  head: () => ({ meta: [{ title: "Gestão de Empresas | DJ PAY" }] }),
+  head: () => ({ meta: [{ title: "Clientes SaaS | DJ PAY" }] }),
   component: CompaniesPage,
 });
 
@@ -118,8 +118,8 @@ function CompaniesPage() {
   return <main className="mx-auto w-full max-w-6xl space-y-7 p-4 pb-14 sm:p-8">
     <div>
       <p className="text-sm font-semibold uppercase tracking-wider text-primary">Administração central</p>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">Gestão de Empresas</h1>
-      <p className="mt-2 text-muted-foreground">Cadastre e consulte os CNPJs da operação. Pagamentos e notas continuam vinculados à empresa de origem até a próxima etapa.</p>
+      <h1 className="mt-2 text-3xl font-bold tracking-tight">Empresas clientes do DJ PAY</h1>
+      <p className="mt-2 text-muted-foreground">Esta área administra empresas contratantes do SaaS. Para cadastrar os 14 prestadores PJ de uma empresa, use o menu Profissionais.</p>
     </div>
     <div className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
       <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold"><Plus className="size-5" /> Cadastrar empresa</h2>
@@ -162,7 +162,7 @@ function CompaniesPage() {
         </div>}
     </section>
     <section className="space-y-3" aria-label="Empresas cadastradas">
-      <h2 className="text-xl font-semibold">Empresas cadastradas <span className="text-muted-foreground">({companies.length})</span></h2>
+      <h2 className="text-xl font-semibold">Empresas clientes cadastradas <span className="text-muted-foreground">({companies.length})</span></h2>
       {companies.length === 0 ? <p className="rounded-xl border p-5 text-muted-foreground">Nenhuma empresa cadastrada.</p> :
         <div className="grid gap-3 md:grid-cols-2">
           {companies.filter(company => !selectedId || company.id === selectedId).map(company => <article key={company.id} className="flex items-start gap-3 rounded-xl border bg-card p-4">

@@ -9,7 +9,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { FileText, Menu, ShoppingCart, User, X } from "lucide-react";
+import { Building2, FileText, Menu, ShoppingCart, User, X } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -134,6 +134,7 @@ const navigationItems = [
   { label: "Profissionais", icon: User, to: "/" },
   { label: "Pagamentos", icon: ShoppingCart, to: "/pagamentos" },
   { label: "Notas Fiscais", icon: FileText, to: "/notas-fiscais" },
+  { label: "Empresas", icon: Building2, to: "/empresas" },
 ] as const;
 
 type AccountSummary = {
@@ -200,13 +201,15 @@ function AccountCard({ account }: { account: AccountSummary }) {
 function Navigation({
   activeItem,
   onSelect,
+  isCentralAdmin,
 }: {
   activeItem: string;
   onSelect: (item: string) => void;
+  isCentralAdmin: boolean;
 }) {
   return (
     <nav aria-label="Navegação principal" className="space-y-1">
-      {navigationItems.map((item) => {
+      {navigationItems.filter((item) => item.to !== "/empresas" || isCentralAdmin).map((item) => {
         const Icon = item.icon;
         const active = activeItem === item.label;
 
@@ -240,6 +243,7 @@ function RootComponent() {
   const [account, setAccount] = useState<AccountSummary>(initialAccount);
   const [isSessionLoading, setIsSessionLoading] = useState(true);
   const [hasSession, setHasSession] = useState(false);
+  const [isCentralAdmin, setIsCentralAdmin] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -250,6 +254,7 @@ function RootComponent() {
       if (!session) {
         setAccount({ ...initialAccount, name: "Sessão não identificada" });
         setHasSession(false);
+        setIsCentralAdmin(false);
         setIsSessionLoading(false);
         if (pathname !== "/login") {
           await router.navigate({ to: "/login", replace: true });
@@ -258,6 +263,9 @@ function RootComponent() {
       }
 
       setHasSession(true);
+      const { data: centralAdmin, error: centralError } = await supabase.rpc("dj_pay_is_central_admin");
+      if (!mounted) return;
+      setIsCentralAdmin(!centralError && centralAdmin === true);
 
       const { data: companyRow } = await supabase
         .from("companies")
@@ -315,7 +323,7 @@ function RootComponent() {
             <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Visão geral
             </p>
-            <Navigation activeItem={activeItem} onSelect={handleNavigation} />
+            <Navigation activeItem={activeItem} onSelect={handleNavigation} isCentralAdmin={isCentralAdmin} />
           </div>
           <div className="mt-auto pt-6">
             <AccountCard account={account} />

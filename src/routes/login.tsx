@@ -20,9 +20,16 @@ function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    void loadSessionContext().then((session) => {
-      if (session) void navigate({ to: "/" });
-    });
+    let active = true;
+    void loadSessionContext()
+      .then((session) => {
+        if (active && session) void navigate({ to: "/" });
+      })
+      .catch((error: unknown) => {
+        console.error("Falha ao verificar a sessão do DJ PAY:", error);
+        if (active) setErrorMessage("Não foi possível verificar sua sessão. Tente novamente.");
+      });
+    return () => { active = false; };
   }, [navigate]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -30,28 +37,37 @@ function LoginPage() {
     setErrorMessage("");
     setIsSubmitting(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
-    if (error) {
+      if (error) {
+        setErrorMessage(
+          error.message === "Invalid login credentials"
+            ? "E-mail ou senha inválidos. Confira os dados e tente novamente."
+            : "Não foi possível autenticar sua conta. Verifique sua conexão e tente novamente.",
+        );
+        return;
+      }
+
+      const session = await loadSessionContext();
+      if (!session) {
+        await supabase.auth.signOut();
+        setErrorMessage(
+          "A conta foi autenticada, mas ainda não possui empresa, perfil ativo e permissão no DJ PAY.",
+        );
+        return;
+      }
+
+      await navigate({ to: "/" });
+    } catch (error) {
+      console.error("Erro durante o login do DJ PAY:", error);
+      setErrorMessage("Não foi possível concluir o login. Tente novamente em instantes.");
+    } finally {
       setIsSubmitting(false);
-      setErrorMessage("E-mail ou senha inválidos. Confira os dados e tente novamente.");
-      return;
     }
-
-    const session = await loadSessionContext();
-    if (!session) {
-      await supabase.auth.signOut();
-      setIsSubmitting(false);
-      setErrorMessage(
-        "A conta foi autenticada, mas ainda não possui empresa, perfil ativo e permissão no DJ PAY.",
-      );
-      return;
-    }
-
-    await navigate({ to: "/" });
   };
 
   return (

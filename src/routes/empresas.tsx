@@ -16,6 +16,7 @@ type Company = { id: string; nome: string; cnpj: string | null; status: string; 
 
 function CompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [selectedId, setSelectedId] = useState("");
   const [authorized, setAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -105,11 +106,20 @@ function CompaniesPage() {
         </div>
       </form>
     </div>
+    <section className="rounded-xl border bg-card p-4 space-y-3" aria-label="Selecionar empresa">
+      <Label htmlFor="selected-company">Selecionar empresa para consulta</Label>
+      <select id="selected-company" value={selectedId} onChange={event => setSelectedId(event.target.value)}
+        className="flex h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <option value="">Todas as empresas cadastradas</option>
+        {companies.map(company => <option key={company.id} value={company.id}>{company.nome} — {company.cnpj || "CNPJ não informado"}</option>)}
+      </select>
+      <p className="text-xs text-muted-foreground">Esta seleção filtra somente o cadastro de empresas. O financeiro permanece vinculado à empresa original da conta.</p>
+    </section>
     <section className="space-y-3" aria-label="Empresas cadastradas">
       <h2 className="text-xl font-semibold">Empresas cadastradas <span className="text-muted-foreground">({companies.length})</span></h2>
       {companies.length === 0 ? <p className="rounded-xl border p-5 text-muted-foreground">Nenhuma empresa cadastrada.</p> :
         <div className="grid gap-3 md:grid-cols-2">
-          {companies.map(company => <article key={company.id} className="flex items-start gap-3 rounded-xl border bg-card p-4">
+          {companies.filter(company => !selectedId || company.id === selectedId).map(company => <article key={company.id} className="flex items-start gap-3 rounded-xl border bg-card p-4">
             <Building2 className="mt-1 size-6 shrink-0 text-primary" />
             <div className="min-w-0">
               <h3 className="font-semibold break-words">{company.nome}</h3>

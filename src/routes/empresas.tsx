@@ -63,7 +63,7 @@ function CompaniesPage() {
     event.preventDefault();
     if (saving) return;
     const digits = cnpj.replace(/\D/g, "");
-    if (digits.length !== 14 || /^([0-9])\1{13}$/.test(digits)) {
+    if (!isValidCnpj(digits)) {
       setMessage("Informe um CNPJ com 14 dígitos válidos.");
       return;
     }

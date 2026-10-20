@@ -134,7 +134,8 @@ const navigationItems = [
   { label: "Profissionais", icon: User, to: "/" },
   { label: "Pagamentos", icon: ShoppingCart, to: "/pagamentos" },
   { label: "Notas Fiscais", icon: FileText, to: "/notas-fiscais" },
-  { label: "Empresas", icon: Building2, to: "/empresas" },
+  { label: "Minha Empresa", icon: Building2, to: "/configuracoes-empresa" },
+  { label: "Clientes SaaS", icon: Building2, to: "/empresas" },
 ] as const;
 
 type AccountSummary = {

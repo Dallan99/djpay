@@ -1,0 +1,123 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState, type FormEvent } from "react";
+import { Building2, Plus } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { loadSessionContext } from "@/lib/session";
+
+export const Route = createFileRoute("/empresas")({
+  head: () => ({ meta: [{ title: "Gestão de Empresas | DJ PAY" }] }),
+  component: CompaniesPage,
+});
+
+type Company = { id: string; nome: string; cnpj: string | null; status: string; email: string | null; telefone: string | null };
+
+function CompaniesPage() {
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [authorized, setAuthorized] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [name, setName] = useState("");
+  const [cnpj, setCnpj] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const session = await loadSessionContext();
+        if (!session) return;
+        const { data: permitted, error: permissionError } = await supabase.rpc("dj_pay_is_central_admin" as never);
+        if (permissionError || permitted !== true) return;
+        if (mounted) setAuthorized(true);
+        const { data, error } = await supabase.from("companies")
+          .select("id,nome,cnpj,status,email,telefone").order("nome");
+        if (error) throw error;
+        if (mounted) setCompanies(data ?? []);
+      } catch {
+        if (mounted) setMessage("Não foi possível carregar as empresas. Tente atualizar a página.");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    void load();
+    return () => { mounted = false; };
+  }, []);
+
+  const save = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (saving) return;
+    const digits = cnpj.replace(/\D/g, "");
+    if (digits.length !== 14 || /^([0-9])\1{13}$/.test(digits)) {
+      setMessage("Informe um CNPJ com 14 dígitos válidos.");
+      return;
+    }
+    if (companies.some(company => company.cnpj?.replace(/\D/g, "") === digits)) {
+      setMessage("Este CNPJ já está cadastrado.");
+      return;
+    }
+    setSaving(true);
+    setMessage("");
+    try {
+      const { data: permitted, error: permissionError } = await supabase.rpc("dj_pay_is_central_admin" as never);
+      if (permissionError || permitted !== true) throw new Error("Sem permissão");
+      const { data, error } = await supabase.from("companies").insert({
+        nome: name.trim(),
+        cnpj: digits,
+        email: email.trim() || null,
+        telefone: phone.trim() || null,
+        status: "active",
+      }).select("id,nome,cnpj,status,email,telefone").single();
+      if (error) throw error;
+      setCompanies(current => [...current, data].sort((a,b) => a.nome.localeCompare(b.nome,"pt-BR")));
+      setName(""); setCnpj(""); setEmail(""); setPhone("");
+      setMessage("Empresa cadastrada com sucesso.");
+    } catch {
+      setMessage("Não foi possível cadastrar. Confira o CNPJ e suas permissões.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <main className="p-6 text-muted-foreground">Carregando empresas...</main>;
+  if (!authorized) return <main className="p-6" role="alert">Acesso restrito à administração central do DJ PAY.</main>;
+
+  return <main className="mx-auto w-full max-w-6xl space-y-7 p-4 pb-14 sm:p-8">
+    <div>
+      <p className="text-sm font-semibold uppercase tracking-wider text-primary">Administração central</p>
+      <h1 className="mt-2 text-3xl font-bold tracking-tight">Gestão de Empresas</h1>
+      <p className="mt-2 text-muted-foreground">Cadastre e consulte os CNPJs da operação. Pagamentos e notas continuam vinculados à empresa de origem até a próxima etapa.</p>
+    </div>
+    <div className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+      <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold"><Plus className="size-5" /> Cadastrar empresa</h2>
+      <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2"><Label htmlFor="company-name">Razão social / nome da empresa</Label><Input id="company-name" value={name} onChange={e => setName(e.target.value)} maxLength={150} required placeholder="Nome da empresa" /></div>
+        <div className="space-y-2"><Label htmlFor="company-cnpj">CNPJ</Label><Input id="company-cnpj" value={cnpj} onChange={e => setCnpj(e.target.value)} inputMode="numeric" maxLength={18} required placeholder="00.000.000/0000-00" /></div>
+        <div className="space-y-2"><Label htmlFor="company-email">E-mail (opcional)</Label><Input id="company-email" type="email" value={email} onChange={e => setEmail(e.target.value)} /></div>
+        <div className="space-y-2"><Label htmlFor="company-phone">Telefone (opcional)</Label><Input id="company-phone" value={phone} onChange={e => setPhone(e.target.value)} maxLength={30} /></div>
+        <div className="sm:col-span-2 flex flex-wrap items-center gap-3">
+          <Button type="submit" disabled={saving}>{saving ? "Salvando..." : "Cadastrar empresa"}</Button>
+          {message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
+        </div>
+      </form>
+    </div>
+    <section className="space-y-3" aria-label="Empresas cadastradas">
+      <h2 className="text-xl font-semibold">Empresas cadastradas <span className="text-muted-foreground">({companies.length})</span></h2>
+      {companies.length === 0 ? <p className="rounded-xl border p-5 text-muted-foreground">Nenhuma empresa cadastrada.</p> :
+        <div className="grid gap-3 md:grid-cols-2">
+          {companies.map(company => <article key={company.id} className="flex items-start gap-3 rounded-xl border bg-card p-4">
+            <Building2 className="mt-1 size-6 shrink-0 text-primary" />
+            <div className="min-w-0">
+              <h3 className="font-semibold break-words">{company.nome}</h3>
+              <p className="text-sm text-muted-foreground">CNPJ: {company.cnpj || "Não informado"}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{company.status === "active" ? "Ativa" : "Inativa"}</p>
+            </div>
+          </article>)}
+        </div>}
+    </section>
+  </main>;
+}
